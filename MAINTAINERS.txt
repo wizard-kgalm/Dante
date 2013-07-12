@@ -1,0 +1,17 @@
+When tagging a release, remove this file from the tag.
+
+SubjectX52873M - Original Creator, not currently active.
+  E-mail: [withheld]
+	Userid: epochwolf
+
+Nol888 - Bug fixer , Not currently active.
+	E-mail: [no point in contacting].
+	Userid: nol888
+
+Wizard-Kgalm - Project Lead and bug fixer.
+	E-mail: evungers@gmail.com
+	deviantART-ID: Wizard-Kgalm
+
+KnightOfBreath - Previous project lead
+	E-mail - []
+	deviantART-ID: KnightOfBreath
