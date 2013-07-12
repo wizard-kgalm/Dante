@@ -9,325 +9,232 @@
 *@license http://www.opensource.org/licenses/gpl-license.php GNU General Public License
 *@version 0.9
 */
-/**
-* Load a Bot Save File or Variable Serialized Data File
-*@return mixed File contents on success, fales on error
-*/
-function load_bsv( $file ) {
-  if( file_exists( $file ) ) return unserialize( file_get_contents( $file ) );
-	else return false;
-}
 
-/**
-* Save a Bot Save File or Variable Serialized Data File
-*@return bool
-*/
-function save_bsv( $file, $data ) {
-	$f = fopen( $file, "w" );
-	$return = fwrite( $f, serialize( $data ) );
-	fclose( $f );
-	return $return;
-}
-/**
-*Futurism Function
-*@return bool
-*/
-function saveData( $filename, $input, $serialize = TRUE ) {
-	if( !is_bool( $serialize ) ) return FALSE;
-	if( !is_dir( f( "savedata") ) ) mkdir( f( "savedata" ) );
-	if( $serialize ) {
-		$f = fopen( f( "savedata/" . $filename . ".bsv" ), "w" );
-		fwrite($f, serialize( $input ) );
-		fclose( $f );
-		return true;
-	} else {
-		$f = fopen( f( "savedata/" . $filename . ".txt" ), "w" );
-		fwrite( $f, str_replace( "\n", "\r\n", var_export( $input, true ) ) );
-		fclose( $f );
-		return true;
-	}
-	return false;
-}
-/**
-* Futurism Function
-*@return mixed
-*/
-function openData( $filename, $serialized = TRUE) {
-	if( !is_bool( $serialized ) ) return false;
-	if( !is_dir( f( "savedata" ) ) ) mkdir( f( "savedata" ) );
-	if( $serialized ) {
-		return unserialize( file_get_contents( f( "savedata/" . $filename . ".bsv" ) ) );
-	} else {
-		return file_get_contents( f( "savedata/" . $filename . ".txt" ) );
-	}
-	return false;
-}
 
-/**
-* Load config from a vudf file
-*@version 0.7
-*@return void
-*/
-function load_config() {
-	global $config, $seperator;
-	$backupConfig = array();
-	if( !isset( $config['bot']['timestamp'] ) ) $config['bot']['timestamp'] = "H:i:s";
-	if( debug( false, 1 ) ) {
-		intHeader( "Configuration \n", "=" );
-		echo "Loading Primary and Secondary Databases\n";
+class config {
+	
+	//Need our bot variable, for use with /config/bot.df's contents. :D
+	public $bot;
+	//For the logins list. 
+	public $logins;
+	
+	//For my commands, and updates, this is the function used for it. Eventually, I will remove this from there and solely use save_config. 
+	function save_info( $file, $data, $backup = FALSE ) {
+		$this->save_config( $file, $data, $backup );
 	}
-	$backupConfig = @unserialize( @file_get_contents( f( "config/backup.vsdf" ) ) );
-	is_dir( f( "config/" ) ) || mkdir( f( "config/" ) );
-	$d = opendir( f( "config/" ) );
-	while( $file = readdir ( $d ) ) {
-		if( substr( $file, strlen( $file ) - 4, 4) == "vudf" ) {
-			$file = substr( $file, 0, strlen( $file ) - 5 );
-			$config[$file] = eval( "return array(" . file_get_contents( f( "config/$file.vudf" ) ) . ");" );
-			if ( $backupConfig[$file] != FALSE && $config[$file] !== FALSE ) {
-				//If both configs load properly
-				if( $backupConfig[$file] != $config[$file] ) {
-					//If databases do not match.
-					debug( "[" . date( "H:i:s" ) . "] $file (x)" );
-					if ( FriendlyErrors && debug() ) echo " Primary and Secondary database files do not match.\n";
-					save_config( $file );
-				} else {
-					debug( "[" . date( "H:i:s" ) . "] $file (ok)" );
-				}
-			} elseif( $backupConfig[$file] === FALSE && $config[$file] !== FALSE ) {
-				// If only the primary loads
-				debug( "[" . date( "H:i:s" ) . "] $file (!2)" );
-				if ( FriendlyErrors && debug() ) echo " Secondary database is corrupt. Restoring from Primary.\n";
-				sleep(1);
-				$backupConfig[$file] = $config[$file];
-				save_config( $file );
-			} elseif( $backupConfig[$file] !== FALSE && $config[$file] === FALSE ) {
-				// If only the backup loads properly
-				debug( "[" . date( "H:i:s" ) . "] $file (!1)" );
-				if ( FriendlyErrors && debug() ) echo " Primary database is corrupt. Restoring from Secondary.\n";
-				sleep(1);
-				$config[$file] = $backupConfig[$file];
-				save_config( $file );
-			} else {
-				//If neither loads properly
-				debug( "[" . date( "H:i:s" ) . "] $file (!1!2)" );
-				if ( FriendlyErrors && debug() ) echo " Both primary and secondary database files ($file) are corrupt.\n";
-				sleep(1);
-			}
+	//New method for saving the config below. 
+	function save_config ( $file, $data, $backup = FALSE ) {
+		//We are going to make a new backup system for the bot. There will be a command that allows you to restore, or update the backup. 
+		is_dir( "./config/backup/" ) || mkdir( "./config/backup/" );
+		file_put_contents( $file, "<?php\n\nreturn ".var_export( $data, true ).";\n\n?>" ); 
+		if( $backup ){
+			$file = explode( "./config/", $file );
+			$file = "./config/backup/" . strtolower( $file[1] );
+			//For normal saves, we won't back up. On quitting OR restart, you can choose to back up. Restoring from back up to be included.
+			file_put_contents( $file, "<?php\n\nreturn ".var_export( $data, true ).";\n\n?>" );
 		}
 	}
-}
-
-/**
-* Store config to a vudf file
-*@version 0.7
-*@return void
-*/
-function save_config( $type = FALSE, $force = FALSE ) {
-	global $config;
-	if ( $config['bot']['thumbMode'] == FALSE || $force == TRUE ) {
-		if( !save_bsv( f( "config/backup.vsdf" ), $config ) ) {
-			intMsg( "Error saving backup" );
-		}
-	}
-	xsave_config( $type, $force );
-}
-/**
-*Saves the actual vudf files
-*@return void
-*/
-function xsave_config( $type, $force ) {
-	global $config;
-	if ( $config['bot']['thumbMode'] == FALSE || $force == TRUE ) {
-		if( !$type ) {
-			foreach( $config as $file => $array ) {
-				xsave_config( $file, $force );
-			}
-		} elseif ( $type == TRUE && is_array($config[$type]) == TRUE) {
-			$file	=	fopen( f( "config/$type.vudf"), 'w' );
-			$o		=	var_export( $config[$type], TRUE );
-			$o		=	substr( $o, 8, strlen( $o ) - 9 );
-			$o		=	substr( $o, 0, strlen( $o ) - 1 );
-			$o		=	explode( "\n", $o );
-			foreach( $o as $i => $l) $o[$i] = substr( $l, 2, strlen( $l ) - 2 );
-			$o = implode( "\n", $o );
-			fwrite( $file, $o );
-			fclose( $file );
-		}
-	}
-}
-
-
-/**
-*Checks stored configuration for proper settings
-*
-*Builds a copy if one is not found.
-*@author SubjectX52873M <SubjectX52873M@gmail.com>
-*@version 0.7
-*@return void
-*/
-function checkConfig() {
-	global $config, $debugLevel;
-	$ini = parse_ini_file( f( "config.ini" ) );
 	
-	if ( $ini === FALSE ) {
-		intmsg( 'FATAL: Unable to load config.ini' );
-		die();
-	}
-	$die = FALSE;
-	if ( empty( $ini['username'] ) ) {
-		intmsg( 'FATAL: No username in config.ini' );
-		$die = TRUE;
-	}
-	if ( empty( $ini['owner'] ) ) {
-		intmsg( 'FATAL: No owner in config.ini' );
-		$die = TRUE;
-	}
-	if ( empty( $ini['password'] ) ) {
-		intmsg( 'FATAL: No password in config.ini' );
-		$die = TRUE;
-	}
-	if ( empty( $ini['trigger'] ) ) {
-		intmsg( 'FATAL: No trigger in config.ini' );
-		$die = TRUE;
-	}
-	if ( $die ) die();
-	
-	if ( isset( $ini['FriendlyErrors'] ) ) define( 'FriendlyErrors', $ini['FriendlyErrors'] ? TRUE : FALSE );
-	else define ( 'FriendlyErrors' , TRUE );
-	if ( isset( $ini['EnhancedLogging'] ) ) define( 'EnhancedLogging', $ini['EnhancedLogging'] ? TRUE : FALSE );
-	else define( 'EnhancedLogging', FALSE );
-	
-	global $debugLevel;
-	$debugLevel = 4;
-	if ( isset( $ini['DebugLevel'] ) ) {
-		if( is_numeric( $ini['DebugLevel']) ){
-			$ini['DebugLevel'] = floor( $ini['DebugLevel'] );
-			if( $ini['DebugLevel'] < 5 ) $debugLevel = $ini['DebugLevel'];
-			else $debugLevel = 5;
-		} else $debugLevel = 5;
-	}
-	//Bot Unique ID
-	/*$botID=load_bsv( f( "config\keys.vsdf" ) );
-	if ( $botID === FALSE ) {
-		$botID = $ini['username'] . " " . md5( uniqid( " ", TRUE ) );
-		save_bsv( f( "config\keys.vsdf" ), $botID );
-	}
-	define( "BotID", $botID );//*/
-	
-	$botarray = array(
-		'username'				=>	$ini['username'],
-		'trigger'				=>	$ini['trigger'],
-		'owner'					=>	$ini['owner'],
-		'about' 				=> 	$ini['about'],
-		'AutoRejoinWhenKicked' 	=> 	$ini['rejoin'] ? TRUE : FALSE,
-		'timestamp' 			=> 	$ini['console'],
-		'timestamp_log' 		=> 	$ini['logs'],
-		'BadCommandMsg' 		=> 	$ini['Bad'],
-		'RestrictedCommandMsg' 	=> 	$ini['Privs'],
-		'thumbMode'				=>	$ini['ThumbDriveMode'] ? TRUE : FALSE,
-		'logChats'				=>	$ini['Logging'] ? TRUE : FALSE,
-		'HomeRoom'				=>	$ini['homeroom'],
-		'EraseConfigNextRun'	=>	'no',
-		'reconAttempts'			=>	intval( $ini['Attempts'] ),
-		'showWhois'				=>	TRUE,
-	);
-	if ( !is_array( $config['bot'] ) ) $config['bot'] = array();
-	$config['bot'] = array_merge( $config['bot'], $botarray );
-	if ( $config['bot']['EraseConfigNextRun'] !== 'no' ) {
-		$config['ignore']	=	array(); 
-		$config['users']	=	array();
-		$config['access']	=	array(
-									'priv'		=>	array(),
-									'default'	=>	array(
-										'guests'	=>	0,
-										'commands'	=>	0,
-										'errors'	=>	0,
-										'trigcheck'	=>0,
-										'events'	=>0,
-									),
-									'flood' => array (
-			  							'use' 		=>	TRUE,
-										'period' 	=> 	30,
-										'times' 	=> 	5,
-										'timeout' 	=> 	60,
-										'ruse' 		=> 	TRUE,
-										'rperiod' 	=> 	3600,
-										'rtimes'	=> 	5,
-										'rtimeout' 	=> 	1800,
-									),
-								); //Clear out access
-	}
-	//Make sure that the home room is always joined.
-	if ( !is_array( $config['bot']['rooms'] ) ) {
-		$config['bot']['rooms'] = array();
-	}
-	$config['bot']['rooms'] = array_unique( array_merge( $config['bot']['rooms'], array( $ini['homeroom'] ) ) );
-	define( "BotHomeRoom", $ini['homeroom'] );
-
-	$error = FALSE;
-	if ( $config['bot']['username'] !== $ini['username'] ) { 
-		intmsg( 'Notice: Username in config.ini does not match setting in database. Fixing.');
-		$config['bot']['username'] = $login['username'];
-		//If there is a new user you need a new token
-		$config['bot']['token'] = ''; 
-		$error = TRUE;
-	}
-	if ( $config['bot']['owner'] !== $ini['owner'] ) { 
-		$config['bot']['owner'] = $login['owner'];
-		intmsg( 'Notice: Owner in config.ini does not match setting in database. Leaving Alone.' );
-		$error = FALSE;
-	}
-	if ( $config['bot']['trigger'] !== $ini['trigger'] ) { 
-		intmsg( 'Notice: Trigger in config.ini does not match setting in database.' );
-		$config['bot']['trigger'] = $ini['trigger'];
-		$error = FALSE;
-	}
-	if ( !is_array( $config['access']['priv'] ) ) {
-		$config['access']['priv'] = array();
-	}
-	if ( !isset( $config['access']['default']['guests'] ) ) {
-		$config['access']['default']['guests'] = 0;
-		intmsg( 'Notice: Missing guest priv default... Setting to 0' );
-		$error = TRUE;
-	}
-	if ( !isset( $config['access']['default']['errors'] ) ) {
-		$config['access']['default']['errors'] = 0;
-		intmsg( 'Notice: Missing error priv default... Setting to 0' );
-		$error = TRUE;
-	}
-	if ( !isset($config['access']['default']['commands'] ) ) {
-		$config['access']['default']['commands'] = 0;
-		intmsg( 'Notice: Missing commands priv default... Setting to 0' );
-		$error = TRUE;
-	}
-	if ( !isset( $config['access']['default']['trigcheck'] ) ) {
-		$config['access']['default']['trigcheck'] = 0;
-		intmsg( 'Notice: Missing trigcheck priv default... Setting to 0' );
-		$error = TRUE;
-	}
-	if ( !isset( $config['access']['default']['events'] ) ) {
-		$config['access']['default']['events'] = 0;
-		intmsg( 'Notice: Missing events priv default... Setting to 0' );
-		$error = TRUE;
-	}
-	array_walk( $config['access']['priv'], 'accessFixWalk' );
-	array_walk( $config['access']['default'], 'accessFixWalk', TRUE);
-	save_config( FALSE, TRUE ); //force save.
-	//Generate a bot ID
-	$x = @base64_decode( @file_get_contents( f( "config/bot.vsdf" ) ) );
-	if( strlen($x) !== 32 ) {
-		$x = base64_encode( md5( uniqid( "", TRUE ) ) );
-		$f = fopen( "config/bot.vsdf", 'w' );
-		fwrite( $f, $x );
-		fclose( $f );
-	}
 	/**
-	*BotID 
-	*
-	*This is not for tracking bots, this is for future use 
-	*@constant string BotID
+	* Restore bot. This is basically a "factory reset" for the bot. What we're going to do is clear out the entire config folder, and then it will reset the config.ini too. 
+	*@version 1.0
+	*@returns void
 	*/
-	define( "BotID", $x );
-}
+	function restore_bot(){
+		foreach( $this->df as $file => $contents ) {
+			unlink( "./config/{$file}.df" );
+			$this->df[$file] = NULL;
+		}
+		$this->build_config( FALSE );
+	}
+	
+	/**
+	* Construct config.ini. This is mostly for resetting the config.ini file, say if you changed it at all, or you're giving a copy to someone, or cloning the bot. 
+	*@version 1.0
+	*@returns the file to default. 
+	*/
+	function build_config( $build = FALSE, $username = "", $owner = "", $trigger = "", $homeroom = "" ){
+		$reconfig = file_get_contents( "./system/functions/reconfig/config.ini" );
+		//Let's put those into an array for something.
+		$check = array( $username, $owner, $trigger, $homeroom );
+		foreach( $check as $values ){
+			//If we're compiling a new config on first launch, that will be set to TRUE. If we're cleaning out the bot, we'll want an empty config.ini. 
+			if( $build ) {
+				( !empty( $values ) ) ? $values = $values : $values = "";
+			} else {
+				$values = "";
+			}
+		}
+		//Replacing the special strings with their values, so on load, it can compile that into the bot.df file..
+		$reconfig = str_replace( "{username}", $username, $reconfig );
+		$reconfig = str_replace( "{owner}"   , $owner   , $reconfig );
+		$reconfig = str_replace( "{trigger}" , $trigger , $reconfig );
+		$reconfig = str_replace( "{homeroom}", $homeroom, $reconfig );
+		//Opening, or creating, the file and saving the information.. 
+		$file     = fopen( f( "config.ini" ), "w" );
+		fwrite( $file, $reconfig );
+		//Done! You now have a config.ini file. Don't touch the base template it builds this from. 
+		fclose( $file );
+	}
+	
+	/**
+	* Restore backup to config. Unlike the original config, this isn't done automatically on start up. You can restore if you mess up a file or something.
+	*@version 1.0
+	*@returns only on failure.
+	*/
+	function restore_backup( $file ) {
+		//Checking for existence of back up.
+		if( file_exists( "./config/backup/{$file}.df" ) ) {
+			//Replacing original with back up, forecefully.
+			$this->df[$file] = include "./config/backup/{$file}.df";
+			$this->save_config( "./config/{$file}.df", $this->df[$file] );
+		} else {
+			return "No backup exists for {$file}.";
+		}
+	}
+		
+	/**
+	* Load config from a df file
+	*@version 1.2
+	*@return void
+	*/
+	function load_config() {
+		global $config, $seperator;
+		if( !isset( $this->bot['timestamp'] ) ) $this->bot['timestamp'] = "H:i:s";
+		is_dir( f( "config/" ) ) || mkdir( f( "config/" ) );
+		$d = opendir( f( "config/" ) );
+		while( $file = readdir ( $d ) ) {
+			$file2 = substr( $file, 0, strlen( $file ) - 5 );
+			if( substr( $file, strlen( $file ) - 4, 4) == "vudf" && !file_exists( "./config/{$file2}.df" ) ) {
+				$file = substr( $file, 0, strlen( $file ) - 5 );
+				$newfile = eval( "return array(" . file_get_contents( f( "config/$file.vudf" ) ) . ");" );
+				$this->save_info( "./config/{$file}.df", $newfile );
+				unlink( "./config/{$file}.vudf" );
+			}
+			if( substr( $file, strlen( $file ) - 3, 3) == ".df" ) {
+				$file = substr( $file, 0, strlen( $file ) - 3 );
+				$this->df[$file] = include "./config/{$file}.df";
+				//Setting special variables alongside the $config->df locations, that way, we can use them for commands.
+				if( $file == "bot" ){
+					$this->bot = include "./config/{$file}.df";
+				}
+				if( $file == "logins" ){
+					$this->logins = include "./config/{$file}.df";
+				}
+				if( $file == "notes" ){
+					$this->notes = include "./config/{$file}.df";
+				}
+				if( $file == "llama" ) {
+					$this->llama = include "./config/{$file}.df";
+				}
+			}
+		}
+	}
 
+	/**
+	*Checks stored configuration for proper settings
+	*
+	*Builds a copy if one is not found.
+	*@author SubjectX52873M, heavy editting by Wizard-Kgalm
+	*@version 1.2
+	*@return void
+	*/
+	function checkConfig( $refresh ) {
+		global $debugLevel;
+		$ini = parse_ini_file( f( "config.ini" ) );
+		if ( $ini === FALSE ) {
+			intmsg( 'FATAL: Unable to load config.ini' );
+			die();
+		}
+		$check = array( 'username', 'owner', 'trigger', );
+		foreach( $check as $stuff ){
+			if( empty( $ini[$stuff] ) ){
+				intmsg( "FATAL: No {$stuff} in config.ini" );
+				die( );
+			}
+		}
+		if ( isset( $ini['FriendlyErrors'] ) ) define( 'FriendlyErrors', $ini['FriendlyErrors'] ? TRUE : FALSE );
+		else define ( 'FriendlyErrors' , TRUE );
+		if ( isset( $ini['EnhancedLogging'] ) ) define( 'EnhancedLogging', $ini['EnhancedLogging'] ? TRUE : FALSE );
+		else define( 'EnhancedLogging', FALSE );
+		
+		global $debugLevel;
+		$debugLevel = 4;
+		if ( isset( $ini['DebugLevel'] ) ) {
+			if( is_numeric( $ini['DebugLevel']) ){
+				$ini['DebugLevel'] = floor( $ini['DebugLevel'] );
+				if( $ini['DebugLevel'] < 5 ) $debugLevel = $ini['DebugLevel'];
+				else $debugLevel = 5;
+			} else $debugLevel = 5;
+		}
+		
+		$botarray = array(
+			'trigger'				=>	$ini['trigger'],
+			'owner'					=>	$ini['owner'],
+			'about' 				=> 	$ini['about'],
+			'AutoRejoinWhenKicked' 	=> 	$ini['rejoin'] ? TRUE : FALSE,
+			'timestamp' 			=> 	$ini['console'],
+			'timestamp_log' 		=> 	$ini['logs'],
+			'BadCommandMsg' 		=> 	$ini['Bad'],
+			'RestrictedCommandMsg' 	=> 	$ini['Privs'],
+			'thumbMode'				=>	$ini['ThumbDriveMode'] ? TRUE : FALSE,
+			'logChats'				=>	$ini['Logging'] ? TRUE : FALSE,
+			'HomeRoom'				=>	$ini['homeroom'],
+			'EraseConfig'			=>	"no",
+			'reconAttempts'			=>	intval( $ini['Attempts'] ),
+			'showWhois'				=>	TRUE,
+		);
+		
+		if( empty( $this->bot['username'] ) || $refresh == "yes" ) {
+			$botarray['username'] = $ini['username'];
+		}
+		if( !is_array( $this->bot ) ){
+			$this->bot = array();
+		}
+		$this->bot = array_merge( $this->bot, $botarray );
+		if( $this->bot['EraseConfig'] !== "no" ){
+			$ignoref = array();
+			$usersf  = array();
+			$accessf = array(
+						'priv'		=>	array(),
+						'default'	=>	array(
+							'guests'	=>	0,
+							'commands'	=>	0,
+							'errors'	=>	0,
+							'trigcheck'	=>  0,
+							'events'	=>  0,
+							),
+						'flood' => array (
+							'use' 		=>	TRUE,
+							'period' 	=> 	30,
+							'times' 	=> 	5,
+							'timeout' 	=> 	60,
+							'ruse' 		=> 	TRUE,
+							'rperiod' 	=> 	3600,
+							'rtimes'	=> 	5,
+							'rtimeout' 	=> 	1800,
+						),
+					);
+			$this->save_info( "./config/ignore.df", $ignoref );
+			$this->save_info( "./config/users.df" , $usersf  );
+			$this->save_info( "./config/access.df", $accessf );
+		}
+		//Make sure the home room is always joined. 
+		if( empty( $this->bot['rooms'] ) ){
+			$this->bot['rooms'] = array ( $ini['homeroom'] , );
+		}
+		define( "BotHomeRoom", $ini['homeroom'] );
+		$privs = array( 'guests', 'errors', 'commands', 'trigcheck', 'events', );
+		foreach( $privs as $priv ){
+			if( !isset( $this->df['access']['default'][$priv] ) ){
+				$this->df['access']['default'][$priv] = 0;
+				intmsg( "Notice: Missing {$priv} priv default... Setting to 0" );
+			}
+		}
+		array_walk( $this->df['access']['priv'], 'accessFixWalk' );
+		array_walk( $this->df['access']['default'], 'accessFixWalk', TRUE);
+		$this->save_info( "./config/access.df" , $this->df['access'] );
+		$this->save_info( "./config/bot.df" , $this->bot );
+	}
+}
 ?>
