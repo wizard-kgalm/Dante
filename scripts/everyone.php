@@ -7,22 +7,15 @@
 // Priv: default
 // Help: ??everyone (#room) message" The #room is optional.
 // ====================
-if( $args[1][0] == "#" ){
-  if( is_object( $dAmn->room[strtolower( $args[1] )] ) ) {
-		$listing = $dAmn->room[strtolower( rChatName( $args[1] ) )]->getHierarchy( TRUE );
-		$say = "";
-		foreach( $listing as $rooms => $zilla ){
-			$say .= implode(" ", array_keys( $zilla ) ) . " ";
-		}
-		$dAmn->say( "<abbr title=' {$say} '></abbr> {$argsE[2]} <abbr title='away'></abbr>", $args[1] );
-	}else
-		return $dAmn->say( "Not in $args[1], cannot continue.", $c );
-}else if( $args[1][0] != "#" ){
-	$listing = $dAmn->room[strtolower( rChatName( $c ) )]->getHierarchy( TRUE );
+( $args[1] == rChatName( $args[1] ) ) ? $room = $args[1] : $room = $c;
+( $args[1] == rChatName( $args[1] ) ) ? $msg = $argsE[2] : $msg = $argsE[1];
+if( is_object( $dAmn->room[strtolower( $room )] ) ) {
+	$listing = $dAmn->room[strtolower( rChatName( $room ) )]->getHierarchy( TRUE );
 	$say = "";
 	foreach( $listing as $rooms => $zilla ){
 		$say .= implode(" ", array_keys( $zilla ) ) . " ";
 	}
-	$dAmn->say( "<abbr title=' {$say} '></abbr> {$argsE[1]} <abbr title='away'></abbr>", $c );
-}
+	$dAmn->say( "<abbr title=' {$say} '></abbr> {$msg} <abbr title='away'></abbr>", $room );
+}else
+	return $dAmn->say( "Not in $args[1], cannot continue.", $c );
 ?>
