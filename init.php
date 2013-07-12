@@ -51,7 +51,7 @@ define( "BotType", "Dante" );
  *Version of the Bot
  *@constant string BotVersion
  */
-define( "BotVersion", "0.13" );
+define( "BotVersion", "1.1" ); //Now entering version 1, because 0.12+ just.. no. and New author!
 /**
  *Development state
  *@constant string BotState
