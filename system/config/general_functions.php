@@ -12,7 +12,7 @@
  *@version 0.4
  */
 function sortpchat( $input, $user ) {
-  if ( empty( $input ) ) return;
+	if ( empty( $input ) ) return;
 	if ( substr( $input, 0, 5 ) == "chat:" || substr( $input, 0, 1 ) == "#") return $input;
 	elseif( substr( $input, 0, 6 ) == "pchat:" ) {
 		$input = str_replace( "pchat:", "", $input );
@@ -26,7 +26,7 @@ function sortpchat( $input, $user ) {
 		return $input;
 	}
 	global $config;
-	if ( $user === FALSE) $user = $config['bot']['username'];
+	if ( $user === FALSE) $user = $config->bot['username'];
 	if ( count( $input ) == 1 ) $input[] = $user;
 	sort( $input );
 	return $input[0] . ':' . $input[1];
@@ -46,7 +46,7 @@ function sortpchat( $input, $user ) {
  */
 function generateChatName( $input, $forSocket = TRUE, $user = FALSE ) {
 	global $config;
-	if( $user == FALSE) $user = $config['bot']['username'];
+	if( $user == FALSE) $user = $config->bot['username'];
 	if( substr( $input, 0, 5 ) != "chat:" && substr( $input, 0, 6 ) != "pchat:" && substr( $input, 0, 1 ) != "#" && substr( $input, 0, 1 ) != "@" ) {
 		if ( strstr( $input, ":" ) ) {
 			$tmp = explode( ":", $input, 2 );
@@ -160,7 +160,7 @@ function accessFixWalk( &$int, $key, $mode = FALSE ) {
  */
 function ts( $open = FALSE ) {
 	global $config;
-	return ( $open ) ? ( date( $config['bot']['timestamp'] ) ) : ( date( $config['bot']['timestamp'] ) . " " );
+	return ( $open ) ? ( date( $config->bot['timestamp'] ) ) : ( date( $config->bot['timestamp'] ) . " " );
 }
 /**
  * Timestamped message to the console
@@ -229,7 +229,7 @@ function registerChat( $message, $chatroom, $toConsole = TRUE ){
 	if( $toConsole == TRUE) intMsg( $message );
 
 	//LOGGING
-	if ( $config['bot']['logChats'] == TRUE && $config['bot']['thumbMode'] == FALSE ) {
+	if ( $config->bot['logChats'] == TRUE && $config->bot['thumbMode'] == FALSE ) {
 		//Prepare variables
 		$chatname 		=	 rChatName( $chatroom );
 		$mts 			= 	date( "Y-m" );
@@ -241,7 +241,7 @@ function registerChat( $message, $chatroom, $toConsole = TRUE ){
 		if( !is_dir( f( $dirname ) ) ) 			mkdir( f( $dirname) );
 		if( !is_dir( f( "$dirname/$mts" ) ) ) 	mkdir( f( "$dirname/$mts" ) );
 		$logfile = fopen( f( "$dirname/$mts/$fn.txt" ), "a" );
-		fwrite( $logfile, "[" . date( $config['bot']['timestamp_log'] ) . "] " . $logMessage . "\r\n" );
+		fwrite( $logfile, "[" . date( $config->bot['timestamp_log'] ) . "] " . $logMessage . "\r\n" );
 		fclose( $logfile );
 	}
 }
@@ -346,7 +346,7 @@ function cscarg( $stuff ) {
 function parsePriv( $lvl ) {
 	global $config;
 	if ( $lvl == 'default' ) {
-		$lvl = $config['access']['default']['commands'] . '*';
+		$lvl = $config->df['access']['default']['commands'] . '*';
 	}
 	return $lvl;
 }
