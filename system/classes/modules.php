@@ -22,7 +22,7 @@
  *@version 0.8
  */
 class Module {
-  /**
+	/**
 	 * Name of the module
 	 *@var string $name
 	 */
@@ -134,7 +134,7 @@ class Module {
 			if( $detecting ) {
 				if( preg_match("/^[ \t]*\/\/ (.+): (.+)$/", $line, $ma ) ) {
 					$meta = $ma[2];
-					$meta = str_replace( "{tr}", $config['bot']['trigger'], $meta );
+					$meta = str_replace( "{tr}", $config->bot['trigger'], $meta );
 					$this->metadata[$ma[1]] = $meta;
 				}
 				if( preg_match("/^[ \t]*\/\/ \=+$/", $line ) ) {
@@ -197,11 +197,11 @@ class Module {
 			intmsg( 'Module "' . $this->name . '" has already been loaded. Changing its data will have no effect.', 'info' );
 			return false;
 		}
-		if( !isset( $config['access']['priv'][$cmd] ) ) {
-			$config['access']['priv'][$cmd] = $priv; // Set the priv
-			save_config( 'access' );
+		if( !isset( $config->df['access']['priv'][$cmd] ) ) {
+			$config->df['access']['priv'][$cmd] = $priv; // Set the priv
+			$config->save_config( "./config/access.df", $config->df['access'] );
 		}
-		$priv = $config['access']['priv'][$cmd]; //Override from global.
+		$priv = $config->df['access']['priv'][$cmd]; //Override from global.
 		if( !file_exists( f( 'modules/' . $this->name ) . '/' . $file . '.php' ) ) {
 			intmsg( 'File "' . f('modules/' . $this->name) . '/' . $file . '.php" does not exist. Cancelling command.' );
 		} else {
@@ -288,7 +288,6 @@ class Module {
 	 */
 	function addHook($trigger,$file,$priv='d',$ds=1) {
 		if(!$this->loadable) {return;}
-		global $config;
 		if($trigger=='cmds') {
 			intmsg('Use setCmd() instead.','info');return false;
 		}
