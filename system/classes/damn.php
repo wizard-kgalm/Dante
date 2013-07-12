@@ -16,9 +16,11 @@
  *@author electicnet
  *@copyright SubjectX52873M 2006
  *@version 0.9
+ 
  */
+ define('LBR', chr(10));
 class dAmn {
-  /**
+	/**
 	 * Stores whether or not the bot is connected.
 	 *@var bool $connected
 	 */
@@ -28,7 +30,7 @@ class dAmn {
 	 *@var bool $loggedIn
 	 */
 	var $loggedIn;
-	
+	public $socket = Null;
 	public $server = array(
 		'chat' => array(
 			'host' => 'chat.deviantart.com',
@@ -42,6 +44,7 @@ class dAmn {
 			'port' => 443,
 		),
 	);
+	
 	/**
 	 * Use the stored token for login.
 	 *
@@ -75,7 +78,7 @@ class dAmn {
 	 *@var array $room
 	 */
 	public $room;
-
+	public $damntoken;
 	/**
 	 * Bot Startup
 	 *
@@ -86,7 +89,7 @@ class dAmn {
 	 *@version 0.9
 	 */
 	function init(){
-		global $config, $seperator, $debugLevel;
+		global  $config, $seperator, $debugLevel;
 		$this->connected = FALSE;
 		$this->loggedIn = FALSE;
 		//Grab login info.
@@ -95,13 +98,15 @@ class dAmn {
 		if( debug( FALSE,1 ) ) intMsg( "Debug level: $debugLevel" );
 		internalMessage( "Written by: SubjectX52873M." );
 		internalHeader( "AUTHTOKEN" );
-		//New to version 0.3, now get the AuthToken
-		if ( $this->UseToken ) {
-			internalMessage( "Trying Stored token first." );
-		} else {
-			$config['bot']['token'] = $this->getAuthToken();
-			save_config( 'bot' );
+		$username = strtolower( $config->bot['username'] );
+		if( $this->UseToken == FALSE ){
+			$this->grabdAmntoken( $username );
+			$config->bot['token'] = $this->damntoken->damntoken;
+		}else{
+			$config->bot['token'] = $config->bot['token'];
 		}
+		$config->save_info( "./config/bot.df", $config->bot );
+	
 	}
 	/**
 	 * If the bot fails to load properly you need to reconnect the socket.
@@ -112,7 +117,7 @@ class dAmn {
 	 *@version 0.5
 	 */
 	function reconSocket() {
-		global $config, $socket;
+		global $config,   $socket;
 		socket_close( $socket );
 		$socket = NULL;
 		$socket = socket_create( AF_INET, SOCK_STREAM, SOL_TCP );
@@ -123,8 +128,10 @@ class dAmn {
 		if ( $this->UseToken == FALSE ) {
 			//Okay, function called to reconnect from a failure with a stored token.
 			internalMessage( "Failed to login using stored token. Grabbing a new one and trying again." );
-			$config['bot']['token'] = $this->getAuthToken();
-			save_config( 'bot' );
+			$username = strtolower( $config->bot['username'] );
+			$this->grabdAmntoken( $username );
+			$config->bot['token'] = $this->damntoken->damntoken;
+			$config->save_info( "./config/bot.df", $config->bot );
 			global $packetping;
 			$packetping = microtime( TRUE );
 			//Connect
@@ -145,7 +152,7 @@ class dAmn {
 	 *@version 0.5
 	 */
 	function reconnect() {
-		global $socket, $loops,$config;
+		global $socket, $loops, $config;
 		@socket_shutdown( $socket );
 		@socket_close( $socket ); //Supress Errors.
 		$socket = null;
@@ -164,7 +171,7 @@ class dAmn {
 		} else {
 			//Prevent inifinite loops
 			$loops++;
-			if ( $loops == $config['bot']['reconAttempts'] && $config['bot']['reconAttempts'] != 0 ) {
+			if ( $loops == $config->bot['reconAttempts'] && $config->bot['reconAttempts'] != 0 ) {
 				intMsg( "Can't connect after 100 tries, dying." );
 				die();
 			}
@@ -203,8 +210,8 @@ class dAmn {
 	function connect() {
 		global $running,$config;
 		$this->send( "dAmnClient 0.2\nagent=" . BotAgent . "\n" .
-						"owner=" . $config['bot']['owner'] . "\n" .
-						"trigger=" . $config['bot']['trigger'] . "\n" .
+						"owner=" . $config->bot['owner'] . "\n" .
+						"trigger=" . $config->bot['trigger'] . "\n" .
 						"creator=SubjectX52873M\n" . chr( 0 ) );
 		$this->connected = TRUE;
 		$running = TRUE;
@@ -218,13 +225,13 @@ class dAmn {
 	 */
 	function login() {
 		global $config;
-		if( $config['bot']['token'] === FALSE ){
+		if( $config->bot['token'] === FALSE ){
 			die( "No authtoken, bad password?" );
 		}
 		if( $this->connected ){
 			$this->send(
-				"login " . $config['bot']['username'] . 
-				"\npk=" . $config['bot']['token'] . 
+				"login " . $config->bot['username'] . 
+				"\npk=" . $config->bot['token'] . 
 				"\n" . chr( 0 ), TRUE );
 			$this->loggedIn = TRUE;
 		}
@@ -242,8 +249,8 @@ class dAmn {
 	function send( $data, $boic = FALSE ) {
 		global $socket;
 		if ( strlen( $data ) >= 32725 ) {
-			$data = substr( $data, 0, 32739 );
-			$data .= " [Cut]" . chr( 0 );
+			$data = substr( $data, 0, 32740 );
+			$data .= " [Message Truncated]" . chr( 0 );
 			intMsg( 'Warning, attempted to send large message.' );
 		}
 		$this->checkQueues();
@@ -285,10 +292,27 @@ class dAmn {
 	 */
 	function autoJoin() {
 		global $config;
-		foreach( $config['bot']['rooms'] as $room ){
-			$this->joinRoom( $room );
+		foreach( $config->bot['rooms'] as $room ){
+			$this->joinRoom( $room, "join" );
 		}
 	}
+	function socket($url) {
+		$fp = fsockopen("ssl://deviantart.com", 443, $errno, $errstr, 30);
+		if (!$fp) {
+		    echo "$errstr ($errno)<br />\n";
+		} else {
+		    $out = "GET ".$url." HTTP/1.1\r\n";
+		    $out .= "Host: www.deviantart.com\r\n";
+		    $out .= "Connection: Close\r\n\r\n";
+		    fwrite($fp, $out);
+		    while (!feof($fp)) {
+		        $buffer = fgets($fp, 512);
+		    }
+		    fclose($fp);
+		    return $buffer;
+		}
+	}
+	
 	/**
 	 * Gets data from the socket and returns it
 	 *@return string
@@ -313,6 +337,7 @@ class dAmn {
 		}
 		return $response;
 	}
+	
 	/**
 	 * PONG!
 	 *
@@ -332,7 +357,7 @@ class dAmn {
 	/**
 	 *Sends an invalid msg main packet to the server to check for a connection
 	 *
-	 *This should not be called too often. :)
+	 *This should not be called too often. : )
 	 *@author SubjectX52873M <SubjectX52873M@gmail.com>
 	 *@return void
 	 *@version 0.4
@@ -340,107 +365,88 @@ class dAmn {
 	function pingpong2() {
 		$this->send( "send chat:!err_plz!\n\nmsg main\n\nBAD FOO" . chr( 0 ) );
 	}
+	
 	/**
-	 * Send a message to a the chatroom
+	 * Send a message to a the chatroom 
 	 *
-	 * New in 0.5, Now accepts /np for nonparsed messages
-	 *@author electricnet
+	 * Accepts /np and /me, generates a non-parsed message, and an action, respectively. Combined the say/npmsg/action functios to this one. 
+	 *@author Wizard-Kgalm
 	 *@return void
-	 *@version 0.5
+	 *@version 2.0
 	 */
-	function say( $message, $chatroom ) {
+	function say( $message, $chatroom, $action = FALSE ) {
 		global $config;
 		$chatroom = generateChatName( $chatroom );
-		if(!empty($config['symbols'])){
-			$oi = $config['symbols']['on'];
+		if( stristr( $chatroom, "dAmnIdlers" ) ){ return; }
+		if( stristr( $chatroom, "datashare" ) && substr( $message, 0, 4) == "BDS:" ) {
+			$this->send( "send " . $chatroom . "\n\nnpmsg main\n\n"  . $message . chr( 0 ), TRUE ); 
+		}elseif( stristr( $chatroom, "datashare" ) && substr( $message, 0, 4) !== "BDS:" ) {
+			return; 
 		}
-		$caps = $config['caps']['on'];
-		$cosby = $config['cosby']['on'];
-		 
-		if(strtolower($chatroom) !== "chat:datashare"){
-			if($caps){
-				$message = strtoupper($message);
-				$message = str_ireplace(":DEV" , ":dev",$message);
-				$message = str_ireplace(":ICON", ":icon",$message);
-				$message = str_ireplace(":THUMB", ":thumb",$message);
-				$message = str_ireplace("&#X", "&#x",$message);
-			}
-			if($cosby){
-				/*$alph = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',);
-				$cosbyalph = array("HIP", "DIP", "SQUOO", "BADA", "MEEP", "BLOO", "CAW", "SQEE", "WOOBLY", "BADUM", "LOO", "DERP", "NERP", "SPEE", "PAPA", "MOOM", "DUB", "PA", "NAW", "KA", "MIM", "ZAP", "NUP", "NA", "YEE", "ZOOP", "hip", "dip", "squoo", "bada", "meep", "bloo", "caw", "sqee", "woobly", "badum", "loo", "derp", "nerp", "spee", "papa", "moom", "dub", "pa", "naw", "ka", "mim", "zap", "nup", "na", "yee", "zoop");*/
-				$cosbyalph = array(
-				"a"=>"hip", "A"=>"HIP",
-				"b"=>"dip", "B"=>"DIP",
-				"c"=>"squoo", "C"=>"SQUOO",
-				"d"=>"bada", "D"=>"BADA",
-				"e"=>"meep", "E"=>"MEEP",
-				"f"=>"bloo", "F"=>"BLOO",
-				"g"=>"caw", "G"=>"CAW",
-				"h"=>"sqee", "H"=>"SQEE",
-				"i"=>"woobly","I"=>"WOOBLY",
-				"j"=>"badum", "J"=>"BADUM",
-				"k"=>"loo", "K"=>"LOO",
-				"l"=>"derp", "L"=>"DERP",
-				"m"=>"nerp", "M"=>"NERP",
-				"n"=>"spee", "N"=>"SPEE",
-				"o"=>"papa", "O"=>"PAPA",
-				"p"=>"moom", "P"=>"MOOM",
-				"q"=>"dub", "Q"=>"DUB",
-				"r"=>"pa", "R"=>"PA",
-				"s"=>"naw", "S"=>"NAW",
-				"t"=>"ka", "T"=>"KA",
-				"u"=>"mim", "U"=>"MIM",
-				"v"=>"zap", "V"=>"ZAP",
-				"w"=>"nup", "W"=>"NUP",
-				"x"=>"na", "X"=>"NA",
-				"y"=>"yee", "Y"=>"YEE",
-				"z"=>"zoop", "Z"=>"ZOOP",
-				"'"=>"'", "\""=>"\"", "`"=>"`", ":"=>":", "!"=>"!", "."=>".", ","=>",", "?"=>"?", "<"=>"<", ">"=>">", "@"=>"@", "#"=>"#", "$"=>"$", "%"=>"%",
-				"*"=>"*", "("=>"(", ")"=>")", "_"=>"_", "-"=>"-", "+"=>"+", "="=>"=", "{"=>"{", "}"=>"}", "["=>"[", "]"=>"]", "\\"=>"\\", "/"=>"/", "~"=>"~",
-				";"=>";", "|"=>"|", "^"=>"^", "1"=>"1", "2"=>"2", "3"=>"3", "4"=>"4", "5"=>"5", "6"=>"6", "7"=>"7", "8"=>"8", "9"=>"9", "0"=>"0",
-				);
-				$cspeak = explode( " ", $message );
-				foreach($cspeak as $num => $words){
-					$cspeak2 = str_split($cspeak[$num]);
-					foreach($cspeak2 as $key => $Letter){
-						$cspeak2[$key] = $cosbyalph[$Letter];
-						$message2 .= $cspeak2[$key];
-					}
-					$message2 .= " ";	
-				}
-				
-				$message = $message2;
-				/*$message = str_split($message);
-				foreach($message as $Key => $Letter) {
-				  $message[$Key] = $cosbyalph[$Letter];
-				}
-				$message = implode("", $message);
-				*/
-				
-			}
-			if($oi){
-				$regalph = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w'/*,'x'*/,'y','z',);
-				$symalph = array('&#x023A;','&#x0243;','&#x20A1;','&#x0189;','&#x0246;','&#x0191;','&#x01E4;','&#x04C7;','&#x1F3F;','&#x0248;','&#x0198;','&#x0141;','&#x04CD;','&#x0220;','&#x01FE;','&#x2C63;','Q','&#x2C64;','&#x015C;','&#x01AE;','&#x0244;','&#x01B2;','&#x20A9;','&#x04FE;','&#x0194;','&#x01B5;','&#x1D8F;','&#x1D6C;','&#x023C;','&#x0256;','&#x0247;','&#x0192;','&#x01E5;','&#x0267;','&#x0268;','&#x0284;','&#x0199;','&#x026B;','&#x0271;','&#x0273;','&#x01FF;','&#x01A5;','q','&#x027D;','&#x0282;','&#x0288;','&#x1D7E;','&#x028B;','&#x2C73;'/*,'&#x04FD;'*/,'&#x0263;','&#x0240;',);
-				$firstpart = array('<&#x0282;&#x1D7E;&#x01A5;>','</&#x0282;&#x1D7E;&#x01A5;>','<&#x0282;&#x1D7E;&#x1D6C;>','</&#x0282;&#x1D7E;&#x1D6C;>','<&#x1D7E;>','</&#x1D7E;>','<&#x1D6C;>','</&#x1D6C;>','<&#x0268;>','<&#x0268;>','<&#x1D6C;&#x027D;>','<&#x1D6C;&#x027D;/>','<&#x1D8F;&#x1D6C;&#x1D6C;&#x027D; &#x0288;&#x0268;&#x0288;&#x026B;&#x0247;=','</&#x1D8F;&#x1D6C;&#x1D6C;&#x027D;>','&#x03Ƀ1;','&#x014Ƀ;','&#x025Ƀ;',);
-				$secondpart = array('<sup>','</sup>','<sub>','</sub>','<u>','</u>','<b>','</b>','<i>','</i>','<br>','<br/>','<abbr title=','</abbr>','&#x03B1;','&#x014B;','&#x025B;',);
-			}
-			$reverse = $config['reverse']['on'];
-			if($reverse){
-				$message = "&#8238;".$message;
-			}
+		if( !empty( $config->df['symbols'] ) ){
+			$oi = $config->df['symbols']['on'];
 		}
-		if( substr( $message, 0, 4 ) == "/me " ){
-
-			$this->me( substr( $message, 4 ), $chatroom );
-		} elseif( substr( $message, 0, 4 ) == "/np " ){
-			$this->npmsg( substr( $message, 4 ), $chatroom );
+		$caps  = $config->df['caps']['on'];
+		$cosby = $config->df['cosby']['on'];
+		if( $caps ){
+			$message = strtoupper( $message );
+			$message = str_ireplace( ":DEV"  , ":dev"  , $message );
+			$message = str_ireplace( ":ICON" , ":icon" , $message );
+			$message = str_ireplace( ":THUMB", ":thumb", $message );
+			$message = str_ireplace( "&#X"   , "&#x"   , $message );
+		}
+		if( $cosby ){
+			$cosbyalph = array(
+				"a" => "hip"    , "A" => "HIP"    , "b" => "dip"    , "B" => "DIP"    , "c" => "squoo"  , "C" => "SQUOO"  , "d" => "bada"   , "D" => "BADA"   ,
+				"e" => "meep"   , "E" => "MEEP"   , "f" => "bloo"   , "F" => "BLOO"   , "g" => "caw"    , "G" => "CAW"    , "h" => "sqee"   , "H" => "SQEE"   ,
+				"i" => "woobly" , "I" => "WOOBLY" , "j" => "badum"  , "J" => "BADUM"  , "k" => "loo"    , "K" => "LOO"    , "l" => "derp"   , "L" => "DERP"   ,
+				"m" => "nerp"   , "M" => "NERP"   , "n" => "spee"   , "N" => "SPEE"   , "o" => "papa"   , "O" => "PAPA"   , "p" => "moom"   , "P" => "MOOM"   ,
+				"q" => "dub"    , "Q" => "DUB"    , "r" => "pa"     , "R" => "PA"     ,	"s" => "naw"    , "S" => "NAW"    , "t" => "ka"     , "T" => "KA"     ,
+				"u" => "mim"    , "U" => "MIM"    , "v" => "zap"    , "V" => "ZAP"    ,	"w" => "nup"    , "W" => "NUP"    , "x" => "na"     , "X" => "NA"     ,
+				"y" => "yee"    , "Y" => "YEE"    , "z" => "zoop"   , "Z" => "ZOOP"   ,	"'" => "'"      , "\""=> "\""     , "`" => "`"      , ":" => ":"      ,
+				"!" => "!"      , "." => "."      , "," => ","      , "?" => "?"      ,	"<" => "<"      , ">" => ">"      , "@" => "@"      , "#" => "#"      ,
+				"$" => "$"      , "%" => "%"      , "*" => "*"      , "(" => "("      , ")" => ")"      , "_" => "_"      , "-" => "-"      , "+" => "+"      ,
+				"=" => "="      , "{" => "{"      , "}" => "}"      , "[" => "["      , "]" => "]"      , "\\"=> "\\"     , "/" => "/"      , "~" => "~"      ,
+				";" => ";"      , "|" => "|"      , "^" => "^"      , "1" => "1"      , "2" => "2"      , "3" => "3"      , "4" => "4"      , "5" => "5"      ,
+				"6" => "6"      , "7" => "7"      , "8" => "8"      , "9" => "9"      , "0" => "0"      ,
+			);
+			$cspeak = explode( " ", $message );
+			foreach($cspeak as $num => $words){
+				$cspeak2 = str_split($cspeak[$num]);
+				foreach($cspeak2 as $key => $Letter){
+					$cspeak2[$key] = $cosbyalph[$Letter];
+					$message2 .= $cspeak2[$key];
+				}
+				$message2 .= " ";	
+			}
+			$message = $message2;
+		}
+		if( $oi ){
+			$regalph = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w'/*,'x'*/,'y','z',);
+			$symalph = array('&#x023A;','&#x0243;','&#x20A1;','&#x0189;','&#x0246;','&#x0191;','&#x01E4;','&#x04C7;','&#x1F3F;','&#x0248;','&#x0198;','&#x0141;','&#x04CD;','&#x0220;','&#x01FE;','&#x2C63;','Q','&#x2C64;','&#x015C;','&#x01AE;','&#x0244;','&#x01B2;','&#x20A9;','&#x04FE;','&#x0194;','&#x01B5;','&#x1D8F;','&#x1D6C;','&#x023C;','&#x0256;','&#x0247;','&#x0192;','&#x01E5;','&#x0267;','&#x0268;','&#x0284;','&#x0199;','&#x026B;','&#x0271;','&#x0273;','&#x01FF;','&#x01A5;','q','&#x027D;','&#x0282;','&#x0288;','&#x1D7E;','&#x028B;','&#x2C73;'/*,'&#x04FD;'*/,'&#x0263;','&#x0240;',);
+			$firstpart = array('<&#x0282;&#x1D7E;&#x01A5;>','</&#x0282;&#x1D7E;&#x01A5;>','<&#x0282;&#x1D7E;&#x1D6C;>','</&#x0282;&#x1D7E;&#x1D6C;>','<&#x1D7E;>','</&#x1D7E;>','<&#x1D6C;>','</&#x1D6C;>','<&#x0268;>','<&#x0268;>','<&#x1D6C;&#x027D;>','<&#x1D6C;&#x027D;/>','<&#x1D8F;&#x1D6C;&#x1D6C;&#x027D; &#x0288;&#x0268;&#x0288;&#x026B;&#x0247;=','</&#x1D8F;&#x1D6C;&#x1D6C;&#x027D;>','&#x03Ƀ1;','&#x014Ƀ;','&#x025Ƀ;',);
+			$secondpart = array('<sup>','</sup>','<sub>','</sub>','<u>','</u>','<b>','</b>','<i>','</i>','<br>','<br/>','<abbr title=','</abbr>','&#x03B1;','&#x014B;','&#x025B;',);
+		}
+		$reverse = $config->df['reverse']['on'];
+		if($reverse){
+			$message = "&#8238;".$message;
+		}
+		if( !is_array( $message ) ){
+			( substr( $message, 0, 4 ) == "/me " ) ? $action = "action" : ( ( substr( $message, 0, 7 ) == "/npmsg " ) ? $action = "npmsg" : $action = "msg" );
 		} else {
-			$message = str_replace($alph, $cosbyalph, $message);
-			$message = str_replace($regalph, $symalph, $message);
-			$message = str_replace ($firstpart, $secondpart, $message);
-			$message = print_r( $message, TRUE);
-			$this->send( "send " . $chatroom . "\n\nmsg main\n\n" . $message . chr( 0 ), TRUE );
+			$action = "msg";
 		}
+		$message = str_replace( $alph      , $cosbyalph  , $message );
+		$message = str_replace( $regalph   , $symalph    , $message );
+		$message = str_replace( $firstpart , $secondpart , $message );
+		$bZikes = $config->df['bzikes2']['status'];
+		if( $bZikes == TRUE ){
+			foreach( $config->df['bzikes'] as $text => $emotes ){
+				$message = str_ireplace( $text, ":thumb".$emotes.":", $message );
+			}
+		}
+		$message = print_r( $message, TRUE );
+		$this->send( "send " . $chatroom . "\n\n{$action} main\n\n"  . $message . chr( 0 ), TRUE );
 	}
 
 	/**
@@ -451,199 +457,41 @@ class dAmn {
 	 *@version 0.3
 	 */
 	function npmsg( $message, $chatroom ) {
-		global $config;
-		$oi = $config['symbols']['on'];
-		$caps = $config['caps']['on'];
-		$cosby = $config['cosby']['on'];
-		 
-		if(strtolower(generateChatName($chatroom)) !== "chat:datashare"){
-			if($caps){
-				$message = strtoupper($message);
-				$message = str_ireplace(":DEV" , ":dev",$message);
-				$message = str_ireplace(":ICON", ":icon",$message);
-				$message = str_ireplace(":THUMB", ":thumb",$message);
-				$message = str_ireplace("&#X", "&#x",$message);
-			}
-			if($cosby){
-				$cosbyalph = array(
-				"a"=>"hip", "A"=>"HIP",
-				"b"=>"dip", "B"=>"DIP",
-				"c"=>"squoo", "C"=>"SQUOO",
-				"d"=>"bada", "D"=>"BADA",
-				"e"=>"meep", "E"=>"MEEP",
-				"f"=>"bloo", "F"=>"BLOO",
-				"g"=>"caw", "G"=>"CAW",
-				"h"=>"sqee", "H"=>"SQEE",
-				"i"=>"woobly","I"=>"WOOBLY",
-				"j"=>"badum", "J"=>"BADUM",
-				"k"=>"loo", "K"=>"LOO",
-				"l"=>"derp", "L"=>"DERP",
-				"m"=>"nerp", "M"=>"NERP",
-				"n"=>"spee", "N"=>"SPEE",
-				"o"=>"papa", "O"=>"PAPA",
-				"p"=>"moom", "P"=>"MOOM",
-				"q"=>"dub", "Q"=>"DUB",
-				"r"=>"pa", "R"=>"PA",
-				"s"=>"naw", "S"=>"NAW",
-				"t"=>"ka", "T"=>"KA",
-				"u"=>"mim", "U"=>"MIM",
-				"v"=>"zap", "V"=>"ZAP",
-				"w"=>"nup", "W"=>"NUP",
-				"x"=>"na", "X"=>"NA",
-				"y"=>"yee", "Y"=>"YEE",
-				"z"=>"zoop", "Z"=>"ZOOP",
-				"'"=>"'", "\""=>"\"", "`"=>"`", ":"=>":", "!"=>"!", "."=>".", ","=>",", "?"=>"?", "<"=>"<", ">"=>">", "@"=>"@", "#"=>"#", "$"=>"$", "%"=>"%",
-				"*"=>"*", "("=>"(", ")"=>")", "_"=>"_", "-"=>"-", "+"=>"+", "="=>"=", "{"=>"{", "}"=>"}", "["=>"[", "]"=>"]", "\\"=>"\\", "/"=>"/", "~"=>"~",
-				";"=>";", "|"=>"|", "^"=>"^", "1"=>"1", "2"=>"2", "3"=>"3", "4"=>"4", "5"=>"5", "6"=>"6", "7"=>"7", "8"=>"8", "9"=>"9", "0"=>"0",
-				);
-				$cspeak = explode( " ", $message );
-				foreach($cspeak as $num => $words){
-					$cspeak2 = str_split($cspeak[$num]);
-					foreach($cspeak2 as $key => $Letter){
-						$cspeak2[$key] = $cosbyalph[$Letter];
-						$message2 .= $cspeak2[$key];
-					}
-					$message2 .= " ";	
-				}
-				
-				$message = $message2;
-				/*$message = str_split($message);
-				foreach($message as $Key => $Letter) {
-				  $message[$Key] = $cosbyalph[$Letter];
-				}
-				$message = implode("", $message);
-				*/
-			}	
-		if($oi){
-			$regalph = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w'/*,'x'*/,'y','z',);
-			$symalph = array('&#x023A;','&#x0243;','&#x20A1;','&#x0189;','&#x0246;','&#x0191;','&#x01E4;','&#x04C7;','&#x1F3F;','&#x0248;','&#x0198;','&#x0141;','&#x04CD;','&#x0220;','&#x01FE;','&#x2C63;','Q','&#x2C64;','&#x015C;','&#x01AE;','&#x0244;','&#x01B2;','&#x20A9;','&#x04FE;','&#x0194;','&#x01B5;','&#x1D8F;','&#x1D6C;','&#x023C;','&#x0256;','&#x0247;','&#x0192;','&#x01E5;','&#x0267;','&#x0268;','&#x0284;','&#x0199;','&#x026B;','&#x0271;','&#x0273;','&#x01FF;','&#x01A5;','q','&#x027D;','&#x0282;','&#x0288;','&#x1D7E;','&#x028B;','&#x2C73;'/*,'&#x04FD;'*/,'&#x0263;','&#x0240;',);
-			$firstpart = array('<&#x0282;&#x1D7E;&#x01A5;>','</&#x0282;&#x1D7E;&#x01A5;>','<&#x0282;&#x1D7E;&#x1D6C;>','</&#x0282;&#x1D7E;&#x1D6C;>','<&#x1D7E;>','</&#x1D7E;>','<&#x1D6C;>','</&#x1D6C;>','<&#x0268;>','<&#x0268;>','<&#x1D6C;&#x027D;>','<&#x1D6C;&#x027D;/>','<&#x1D8F;&#x1D6C;&#x1D6C;&#x027D; &#x0288;&#x0268;&#x0288;&#x026B;&#x0247;=','</&#x1D8F;&#x1D6C;&#x1D6C;&#x027D;>','&#x03Ƀ1;','&#x014Ƀ;','&#x025Ƀ;',);
-			$secondpart = array('<sup>','</sup>','<sub>','</sub>','<u>','</u>','<b>','</b>','<i>','</i>','<br>','<br/>','<abbr title=','</abbr>','&#x03B1;','&#x014B;','&#x025B;',);
-		}
+		$this->say( $mssage, $chatroom, "npmsg" );
 	}
-		$message = str_replace($regalph, $symalph, $message);
-		$message = str_replace ($firstpart, $secondpart, $message);
-		$message = print_r( $message, TRUE );
-		$chatroom = generateChatName( $chatroom );
-		$this->send( "send " . $chatroom . "\n\nnpmsg main\n\n" . $message . chr( 0 ) );
-	}
+	
 	/**
 	 * Send an action to a the chatroom
-	 *@author electricnet
-	 *@return void
-	 *@version 0.1
+	 * Deprecated to a single command, this will just allow functions to remain in use as normal.
 	 */
 	function me( $message, $chatroom ) {
-		global $config;
-		$oi = $config['symbols']['on'];
-		$cosby = $config['cosby']['on'];
-		$caps = $config['caps']['on'];
-		if(strtolower(generateChatName($chatroom)) !== "chat:datashare"){
-			if($caps){
-				$message = strtoupper($message);
-				$message = str_ireplace(":DEV" , ":dev",$message);
-				$message = str_ireplace(":ICON", ":icon",$message);
-				$message = str_ireplace(":THUMB", ":thumb",$message);
-				$message = str_ireplace("&#X", "&#x",$message);
-			}
-			if($cosby){
-				/*$alph = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',);
-				$cosbyalph = array("HIP", "DIP", "SQUOO", "BADA", "MEEP", "BLOO", "CAW", "SQEE", "WOOBLY", "BADUM", "LOO", "DERP", "NERP", "SPEE", "PAPA", "MOOM", "DUB", "PA", "NAW", "KA", "MIM", "ZAP", "NUP", "NA", "YEE", "ZOOP", "hip", "dip", "squoo", "bada", "meep", "bloo", "caw", "sqee", "woobly", "badum", "loo", "derp", "nerp", "spee", "papa", "moom", "dub", "pa", "naw", "ka", "mim", "zap", "nup", "na", "yee", "zoop");*/
-				$cosbyalph = array(
-				"a"=>"hip", "A"=>"HIP",
-				"b"=>"dip", "B"=>"DIP",
-				"c"=>"squoo", "C"=>"SQUOO",
-				"d"=>"bada", "D"=>"BADA",
-				"e"=>"meep", "E"=>"MEEP",
-				"f"=>"bloo", "F"=>"BLOO",
-				"g"=>"caw", "G"=>"CAW",
-				"h"=>"squee", "H"=>"SQUEE",
-				"i"=>"woobly","I"=>"WOOBLY",
-				"j"=>"badum", "J"=>"BADUM",
-				"k"=>"loo", "K"=>"LOO",
-				"l"=>"derp", "L"=>"DERP",
-				"m"=>"nerp", "M"=>"NERP",
-				"n"=>"spee", "N"=>"SPEE",
-				"o"=>"papa", "O"=>"PAPA",
-				"p"=>"moom", "P"=>"MOOM",
-				"q"=>"dub", "Q"=>"DUB",
-				"r"=>"pa", "R"=>"PA",
-				"s"=>"naw", "S"=>"NAW",
-				"t"=>"ka", "T"=>"KA",
-				"u"=>"mim", "U"=>"MIM",
-				"v"=>"zap", "V"=>"ZAP",
-				"w"=>"nup", "W"=>"NUP",
-				"x"=>"na", "X"=>"NA",
-				"y"=>"yee", "Y"=>"YEE",
-				"z"=>"zoop", "Z"=>"ZOOP",
-				"'"=>"'", "\""=>"\"", "`"=>"`", ":"=>":", "!"=>"!", "."=>".", ","=>",", "?"=>"?", "<"=>"<", ">"=>">", "@"=>"@", "#"=>"#", "$"=>"$", "%"=>"%",
-				"*"=>"*", "("=>"(", ")"=>")", "_"=>"_", "-"=>"-", "+"=>"+", "="=>"=", "{"=>"{", "}"=>"}", "["=>"[", "]"=>"]", "\\"=>"\\", "/"=>"/", "~"=>"~",
-				";"=>";", "|"=>"|", "^"=>"^", "1"=>"1", "2"=>"2", "3"=>"3", "4"=>"4", "5"=>"5", "6"=>"6", "7"=>"7", "8"=>"8", "9"=>"9", "0"=>"0",
-				);
-				$cspeak = explode( " ", $message );
-				foreach($cspeak as $num => $words){
-					$cspeak2 = str_split($cspeak[$num]);
-					foreach($cspeak2 as $key => $Letter){
-						$cspeak2[$key] = $cosbyalph[$Letter];
-						$message2 .= $cspeak2[$key];
-					}
-					$message2 .= " ";	
-				}
-				
-				$message = $message2;
-				/*$message = str_split($message);
-				foreach($message as $Key => $Letter) {
-				  $message[$Key] = $cosbyalph[$Letter];
-				}
-				$message = implode("", $message);
-				*/
-			}
-		
-	if($oi){
-		$regalph = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w'/*,'x'*/,'y','z',);
-		$symalph = array('&#x023A;','&#x0243;','&#x20A1;','&#x0189;','&#x0246;','&#x0191;','&#x01E4;','&#x04C7;','&#x1F3F;','&#x0248;','&#x0198;','&#x0141;','&#x04CD;','&#x0220;','&#x01FE;','&#x2C63;','Q','&#x2C64;','&#x015C;','&#x01AE;','&#x0244;','&#x01B2;','&#x20A9;','&#x04FE;','&#x0194;','&#x01B5;','&#x1D8F;','&#x1D6C;','&#x023C;','&#x0256;','&#x0247;','&#x0192;','&#x01E5;','&#x0267;','&#x0268;','&#x0284;','&#x0199;','&#x026B;','&#x0271;','&#x0273;','&#x01FF;','&#x01A5;','q','&#x027D;','&#x0282;','&#x0288;','&#x1D7E;','&#x028B;','&#x2C73;'/*,'&#x04FD;'*/,'&#x0263;','&#x0240;',);
-		$firstpart = array('<&#x0282;&#x1D7E;&#x01A5;>','</&#x0282;&#x1D7E;&#x01A5;>','<&#x0282;&#x1D7E;&#x1D6C;>','</&#x0282;&#x1D7E;&#x1D6C;>','<&#x1D7E;>','</&#x1D7E;>','<&#x1D6C;>','</&#x1D6C;>','<&#x0268;>','<&#x0268;>','<&#x1D6C;&#x027D;>','<&#x1D6C;&#x027D;/>','<&#x1D8F;&#x1D6C;&#x1D6C;&#x027D; &#x0288;&#x0268;&#x0288;&#x026B;&#x0247;=','</&#x1D8F;&#x1D6C;&#x1D6C;&#x027D;>','&#x03Ƀ1;','&#x014Ƀ;','&#x025Ƀ;',);
-			$secondpart = array('<sup>','</sup>','<sub>','</sub>','<u>','</u>','<b>','</b>','<i>','</i>','<br>','<br/>','<abbr title=','</abbr>','&#x03B1;','&#x014B;','&#x025B;',);
-			}
+		$this->say( $message, $chatroom, "action" );
 	}
-		$message = str_replace($regalph, $symalph, $message);
-		$message = str_replace ($firstpart, $secondpart, $message);
-		$message = print_r( $message, TRUE );
-		$chatroom = generateChatName( $chatroom );
-		$this->send( "send " . $chatroom . "\n\naction main\n\n" . $message . chr( 0 ) );
-	}
+	
 	/**
-	 * Join a chatroom
-	 *@author electricnet
+	 * Join or part a chatroom
+	 *@author Wizard-Kgalm
 	 *@return bool TRUE for success in joining, FALSE for failure.
-	 *@return void
-	 *@version 0.1
+	 *@Combining the actions, I see no reason for them to be seperate. 
+	 *
 	 */
-	function joinRoom( $chatroom ) {
-		if( !empty( $chatroom ) ){
-			$chatroom = generateChatName( $chatroom );
-			$this->send( "join " . $chatroom . "\n" . chr( 0 ), TRUE );
-			return TRUE;
-		} else {
+	function joinRoom( $chatroom, $action = "join" ) {
+		( strtolower( $action ) == "join" ) ? $action = "join" : $action = "part";
+		if( empty( $chatroom ) ){
 			return FALSE;
 		}
+		$chatroom = generateChatName( $chatroom );
+		$this->send( "{$action} " . $chatroom . "\n" . chr( 0 ), TRUE );
+		return TRUE;
 	}
+	
 	/**
 	 * Leave a chatroom
-	 *@author electricnet
-	 *@return bool TRUE for success in leave, FALSE for failure.
-	 *@return void
-	 *@version 0.1
 	 */
 	function partRoom( $chatroom ) {
-		if( !empty( $chatroom ) ) {
-			$chatroom = generateChatName( $chatroom );
-			$this->send( "part " . $chatroom . "\n" . chr( 0 ) );
-			return TRUE;
-		} else {
-			return FALSE;
-		}
+		$this->joinRoom( $chatroom, "part" );
 	}
+	
 	/**
 	 * Get a property
 	 *
@@ -654,14 +502,15 @@ class dAmn {
 	 */
 	function get( $property, $chatroom ) {
 		$chatroom = generateChatName( $chatroom );
-		if ( $chatroom == FALSE )return;
+		if ( $chatroom == FALSE ) return;
 		$this->send( "get " . $chatroom . "\np=" . $property . "\n" . chr( 0 ) );
 	}
 
 	/**
 	 * /whois a user
 	 *
-	 * This does not return a value. It sends a request for data to the server and dAmn:process catches it later.
+	 * This does not return a value. It sends a request for data to the server and dAmn:process catches it later. 
+	 * The way this is handled is retarded and involves a loaded variable. To be fixed at some point to make it more flexible.
 	 *@author electricnet
 	 *@return void
 	 *@version 0.4
@@ -683,56 +532,40 @@ class dAmn {
 		if ( $chatroom == FALSE ) return;
 		$this->send( "kick " . $chatroom . "\nu=" . $username . "\n\n" . $reason . chr( 0 ) );
 	}
-
+	 
 	/**
-	 * Promote a user.
+	 * Promote, demote, or ban a user. Same thing as join/part chatroom, combining the actions here, as, once again, I see no reason for them to seperate.
 	 *@author electricnet
 	 *@return void
 	 *@version 0.4
 	 */
-	function promote( $username, $privclass, $chatroom ) {
+	function promote( $username, $privclass, $chatroom, $action = "promote" ) {
 		$chatroom = generateChatName( $chatroom );
 		if ( $chatroom == FALSE ) return;
-		$this->send( "send " . $chatroom . "\n\npromote " . $username . "\n\n" . $privclass . chr( 0 ) );
+		$this->send( "send " . $chatroom . "\n\n{$action} " . $username . "\n\n" . $privclass . chr( 0 ) );
 	}
+	
 	/**
-	 * Demote a user.
-	 *@author electricnet
-	 *@return void
-	 *@version 0.4
+	 * Demote a user. For space saving, we're throwing it up to a single function, promote.
 	 */
 	function demote( $username, $privclass, $chatroom ) {
-		$chatroom = generateChatName( $chatroom );
-		if ( $chatroom == FALSE ) return;
-		$this->send( "send " . $chatroom . "\n\ndemote " . $username . "\n\n" . $privclass . chr( 0 ) );
+		$this->promote( $username, $privclass, $chatroom, "demote" );
 	}
+	
 	/**
-	 * Ban a user.
-	 *
-	 * Equiv to !demote (user) banned
-	 *@author electricnet
-	 *@return void
-	 *@version 0.4
+	 * Ban a user. For space saving, we're throwing it up to a single function, promote.
 	 */
 	function ban( $username, $chatroom ) {
-		$chatroom = generateChatName( $chatroom );
-		if ( $chatroom == FALSE ) return;
-		$this->send( "send " . $chatroom . "\n\nban " . $username . "\n\n" . chr( 0 ) );
+		$this->promote( $username, $privclass, $chatroom, "ban" );
 	}
+	
 	/**
-	 * Unban a user.
-	 *
-	 *This promotes/demotes a user to the default guest level
-	 *@author electricnet
-	 *@return void
-	 *@version 0.4
+	 * Unban a user. For space saving, we're throwing it up to a single function, promote.
 	 */
 	function unban( $username, $chatroom ){
-		$chatroom = generateChatName( $chatroom );
-		if ( $chatroom == FALSE ) return;
-		$this->send( "send " . $chatroom . "\n\nunban " . $username . "\n\n" . chr( 0 ) );
+		$this->promote( $username, $privclass, $chatroom, "unban" );
 	}
-
+	//Wizard-Kgalm says "lol" at the below. Leaving this here for memories. Wouldn't want to completely take away this bot's origins.
 	/**
 	 * On December 11, 2006 (Central Standard Time)
 	 * 16:41:50 <electricnet> :shrug:
@@ -759,6 +592,7 @@ class dAmn {
 			return FALSE;
 		}
 	}
+	
 	/**
 	 * Admin
 	 *
@@ -804,7 +638,7 @@ class dAmn {
 				$datas = explode( chr( 0 ), $this->data );
 				$this->data = $datas[count( $datas ) - 1];
 				unset( $datas[count( $datas ) - 1] );
-				if( debug( FALSE,5 ) ){
+				if( debug( FALSE, 5 ) ){
 					echo "** INCOMING <- " . time() . "**\n";
 					var_dump( $datas );
 				}
@@ -822,162 +656,261 @@ class dAmn {
 			}
 		}
 	}
+	
+	function error( $text ) {
+		echo " \033[1;33m" . $text . "\033[0m";
+	}
+	
+	/**
+	*Authorize OAuth to grab the token for your account. This won't really work unless we have you feed a password one time, or unless you have Magician. 
+	*@ This will not store your password on the bot, and it will store the code so if it needs to be grabbed again, it's available.
+	*@author Wizard-Kgalm
+	*@version 1.0
+	*/
+	function authorize( $username ){
+		global $config;
+		// Method to get the cookie! Yeah! :D
+		// Our first job is to open an SSL connection with our host.
+		if( isset( $config->logins['login'][$username] ) ){
+			$password = base64_decode( $config->logins['login'][$username] );
+		} else {
+			print "\nTo authorize the account automatically, we'll need your bot's password. This won't be stored, and will only be asked for now.\n";
+			$password = trim( fgets ( STDIN ) );
+		}
+		$socket = fsockopen( "ssl://www.deviantart.com", 443 );
+		// If we didn't manage that, we need to exit!
+		if( $socket === false ) {
+			return array(
+				'status' => 2,
+				'error' => 'Could not open an internet connection'
+			);
+		}
+		fclose( $socket );
+		// Fill up the form payload
+		$POST  = '&username='.urlencode( $username );
+		$POST .= '&password='.urlencode( $password );
+		$POST .= '&remember_me=1';
+		// And now we send our header and post data and retrieve the response.
+		$response = $this->send_headers(
+			fsockopen( "ssl://www.deviantart.com", 443 ),
+			"www.deviantart.com",
+			"/users/login",
+			"http://www.deviantart.com/users/rockedout",
+			$POST
+		);
+		// Now that we have our data, we can close the socket.
+		// And now we do the normal stuff, like checking if the response was empty or not.
+		if( empty( $response ) ){
+			return array(
+				'status' => 3,
+				'error' => 'No response returned from the server'
+			);
+		}		
+		if( stripos( $response, 'set-cookie' ) === false ){
+			return array(
+				'status' => 4,
+				'error' => 'No cookie returned'
+			);
+		}
+		// Grab the cookies from the header
+		$response = explode( "\r\n", $response );
+		$cookie_jar = array();
+		foreach ( $response as $line ){
+			if ( strpos( $line, "Set-Cookie:" ) !== false ){
+				$cookie_jar[] = substr( $line, 12, strpos( $line, "; " ) -12 );
+			}
+		}
+		$grab = $this->send_headers(
+			fsockopen( "ssl://www.deviantart.com", 443 ),
+			"www.deviantart.com",
+			"/oauth2/draft15/authorize?client_id=24&redirect_uri=http://damn.shadowkitsune.net/apicode/&response_type=code",
+			"",
+			"",
+			$cookie_jar
+		);
+		$grab = explode( "\r\n", $grab );
+		foreach( $grab as $line ){
+			if( strpos( $line, "Set-Cookie:" )!== false ){
+				$cookie_jar2[] = substr( $line, 12, strpos( $line, "; " ) -12 );
+			}
+		}
+		$stuff['grab'] = $grab;
+		$host = "www.deviantart.com";
+		$url = "/settings/update-applications";
+		$referer = "https://www.deviantart.com/settings/applications?client_id=24";
+		$post = "client_id=24&terms_agree=true&authorize=true";
+		//$cookie_jar = $cookie_jar2;
+		$grab = $this->send_headers(
+			fsockopen( "ssl://www.deviantart.com", 443 ),
+			$host,
+			$url,
+			$referer,
+			$post,
+			$cookie_jar
+		);
+		$stuff['grab2'] = $grab;
+		$config->save_config( "./config/authorize.df", $stuff );
+		$grab = explode( "\r\n", $grab );
+		foreach( $grab as $line ){
+			if( strpos( $line, "Location:" ) !== false ){
+				$code = $line;
+			}
+		}
+		$code = explode( "?code=", $code );
+		echo "$username has been authorized. oAuth access: {$code[1]}\n";
+		$config->df['access2'][$username] = $code[1];
+		$config->save_config( "./config/access2.df", $config->df['access2'] );
+		return $code[1];
+	}
+	
+	/**
+	*OAuth allows a user to connect to dAmn without use of a password. It requires authorization from the account holder to use the app that grabs the token for the bot. 
+	*See the dAmn FAQ for /admin uage
+	*@author DeathShadow--666, editted lightly by Wizard-Kgalm for Dante.
+	*@version 1.0
+	*/
+	function oauth( $mode, $username, $refresh = false ) {
+		global $config;
+		$this->client_id = '24'; // OAuth 2.0 client_id
+		$this->client_secret = 'b6c81c08563888f0da7ea3f7f763c426'; // OAuth 2.0 client_secret
+		if( file_exists( "./config/oauth.json" ) ){
+			if( $mode == 0 ) echo "Grabbing existing oAuthtokens..." . LBR; //Turn off if silent
+			//Let's grab the file.
+			$oauth_file = include "./config/oauth.json";
+		}
+		if( isset( $oauth_file[$username] ) ){
+			//Setting to the oauth_tokens variable.
+			$this->oauth_tokens = json_decode( $oauth_file[$username] );
+			if( $mode == 0 ) echo "Tokens grabbed from file..." . LBR . LBR;
+			if( $refresh ) {
+				// Getting the access token.
+				if( $mode == 0 ) echo "Refreshing Token" . LBR;
+				$oauth_file[$username] = $this->socket( '/oauth2/draft15/token?client_id='.$this->client_id.'&redirect_uri=http://damn.shadowkitsune.net/apicode/&grant_type=refresh_token&client_secret='.$this->client_secret.'&refresh_token='.$this->oauth_tokens->refresh_token );
+				// Set to oauth_tokens variable
+				$this->oauth_tokens = json_decode( $oauth_file[$username] );
+				if( $this->oauth_tokens->status != "success" ) {
+					if( $mode == 0 ) echo $this->error( "For some reason, your refresh tokens failed" ) . LBR;
+					unset( $oauth_file[$username] );
+				} else {
+					// Writing to oauth.json
+					$config->save_info( "./config/oauth.json", $oauth_file );
+					if( $mode == 0 ) echo "Tokens grabbed with refreshtoken!" . LBR;
+				}
+			} else {
+				if( $mode == 0 ) echo "Checking if tokens have expired..." . LBR;
+				$placebo = json_decode( $this->socket( '/api/draft15/placebo?access_token='.$this->oauth_tokens->access_token ) );
+				if( $placebo->status != "success" ) {
+					if( $mode == 0 ) echo "Tokens expired, grabbing new ones..." . LBR;
+					$this->oauth( 0, $username, true );
+				} else {
+					if( $mode == 0 ) echo "Tokens grabbed!" . LBR;
+				}
+			}
+		} else {
+			if( $mode == 0 ) echo "Grabbing the oAuth Tokens from deviantART..." . LBR; // Turn off if silent
+			//If you have Magician, and some idea of what you're doing, you may enable below, otherwise, I wouldn't bother. 
+			/*if( isset( $config->df['access2'][$username] ) ){
+				echo "Code found, let's attempt to grab us a token." . LBR;
+				$code = $config->df['access2'][$username];
+				
+			} else {*/
+				//Manual authorization. Let's not have to open the browser ourselves.
+				echo "Gonna attempt to authorize ourselves.. " . LBR;
+				$code = $this->authorize( $username );
+				if( !empty( $code ) ){
+					echo "Success! Round 2". LBR;
+				
+				} else {
+					echo "Something went wrong. Let's try it this way.." . LBR;
+					echo "Open your browser to the required URL. Please load the link below! (Make sure to login the account you're using for bot first.)" . LBR;
+					echo 'https://bit.ly/WI6u6y' . LBR;
+					// Retreiving the code
+					echo "Enter the code given by above link:" . LBR;
+					$code = trim( fgets( STDIN ) ); // STDIN for reading input
+				}
+			
+			// Getting the access token.
+			$oauth_file[ $username ] = $this->socket( '/oauth2/draft15/token?client_id='.$this->client_id.'&redirect_uri=http://damn.shadowkitsune.net/apicode/&grant_type=authorization_code&client_secret='.$this->client_secret.'&code='.$code );
+			// Set to oauth_tokens variable
+			$this->oauth_tokens = json_decode( $oauth_file[ $username ] );
+			if( $this->oauth_tokens->status != "success" ) {
+				if( $mode == 0 ) echo $this->error( "For some reason, your tokens failed" ) . LBR;
+				$config->save_config('./config/test.vudf', $this->oauth_tokens );
+				unset( $oauth_file[$username] );
+				$config->save_info( "./config/oauth.json", $oauth_file );
+				$this->oauth( 0, $username );
+			} else {
+				//This method of saving rather than the original makes it possible to have multiple accounts. That way, you don't have to keep changing the access code.
+				$config->save_info( "./config/oauth.json", $oauth_file );
+				if( $mode == 0 ) echo "Tokens grabbed!" . LBR;
+			}
+		}
+	}
+
+	// dAmntoken function
+	function grabdAmntoken( $username ) {
+		//Need to grab the token.
+		$this->oauth( 0, $username );
+		// Grab the damntoken and set it to damntoken variable
+		$this->damntoken = json_decode($this->socket('/api/draft15/user/damntoken?access_token='.$this->oauth_tokens->access_token));
+	}
+	
+	function send_headers( $socket, $host, $url, $referer, $post = null, $cookies = array( ) )
+	{
+		try
+		{
+			$headers = "";
+			if( isset( $post ) )
+				$headers .= "POST {$url} HTTP/1.1\r\n";
+			else $headers .= "GET {$url} HTTP/1.1\r\n";
+			$headers .= "Host: {$host}\r\n";
+			$headers .= "User-Agent: Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.2.28) Gecko/20120306 Firefox/3.6.28 ( .NET CLR 3.5.30729; .NET4.0C)\r\n";
+			$headers .= "Referer: {$referer}\r\n";
+			if( $cookies != array( ) )
+				$headers .= "Cookie: " . implode( "; ", $cookies ) . "\r\n";
+			$headers .= "Connection: close\r\n";
+			$headers .= "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*\/*;q=0.8\r\n";
+			$headers .= "Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n";
+			$headers .= "Content-Type: application/x-www-form-urlencoded\r\n";
+			if( isset( $post ) )
+				$headers .= "Content-Length: " . strlen( $post ) . "\r\n\r\n{$post}";
+			else $headers .= "\r\n";
+			$response = "";
+			fputs( $socket, $headers );
+			while( !feof( $socket ) ) $response .= fgets ( $socket, 8192 );
+			return $response;
+		}
+		catch( Exception $e )
+		{
+			echo "Exception occured: " . $e->getMessage() . "\n";
+			return "";
+		}
+	}
 
 	/**
-	 *Get Token
-	 *
-	 *This function logs the bot into it's account and steals the cookie from the server. The cookie contains an Md5 hash, called an AuthToken. The dAmn server (chat.deviantart.com:3900) uses the AuthTokens for login not passwords. So the bot needs to grab the Authtoken before logging into the chat server.
-	 *@author SubjectX52873M <SubjectX52873M@gmail.com>
-	 *@author electricnet
-	 *@return mixed FALSE on errors, string(32) on success
-	 *@version 0.10r93
-	 */
-	function getAuthToken() {
-	$login = parse_ini_file( f( "config.ini" ) ); 
-	$username = $login['username'];
-	$pass = $login['password'];
-
-                // Method to get the cookie! Yeah! :D
-                // Our first job is to open an SSL connection with our host.
-                $socket = @fsockopen(
-                        $this->server['login']['transport'].$this->server['login']['host'],
-                        $this->server['login']['port']
-                );
-                // If we didn't manage that, we need to exit!
-                if($socket === false) {
-                return array(
-                        'status' => 2,
-                        'error' => 'Could not open an internet connection');
-                }
-                // Fill up the form payload
-                $POST = '&username='.urlencode($username);
-                $POST.= '&password='.urlencode($pass);
-                $POST.= '&remember_me=1';
-                // And now we send our header and post data and retrieve the response.
-                $response = $this->send_headers(
-                    $socket,
-                    $this->server['login']['host'],
-                    $this->server['login']['file'],
-                    "http://www.deviantart.com/users/rockedout",
-                    $POST
-                );
-               
-                // Now that we have our data, we can close the socket.
-                fclose ($socket);
-                // And now we do the normal stuff, like checking if the response was empty or not.
-                if(empty($response))
-                return array(
-                        'status' => 3,
-                        'error' => 'No response returned from the server'
-                );
-                if(stripos($response, 'set-cookie') === false)
-                return array(
-                        'status' => 4,
-                        'error' => 'No cookie returned'
-                    );
-                // Grab the cookies from the header
-                $response=explode("\r\n", $response);
-                $cookie_jar = array();
-                foreach ($response as $line)
-                    if (strpos($line, "Set-Cookie:")!== false)
-                        $cookie_jar[] = substr($line, 12, strpos($line, "; ")-12);
-
-                // Using these cookies, we're gonna go to chat.deviantart.com and get
-                // our authtoken from the dAmn client.
-                if (($socket = @fsockopen("ssl://www.deviantart.com", 443)) == false)
-                     return array(
-                        'status' => 2,
-                        'error' => 'Could not open an internet connection');
-
-                $response = $this->send_headers(
-                    $socket,
-                    "chat.deviantart.com",
-                    "/chat/Botdom",
-                    "http://chat.deviantart.com",
-                    null,
-                    $cookie_jar
-                );
-
-                // Now search for the authtoken in the response
-                $cookie = null;
-                if (($pos = strpos($response, "dAmn_Login( ")) !== false)
-                {
-                    $response = substr($response, $pos+12);
-                    $cookie = substr($response, strpos($response, "\", ")+4, 32);
-                }
-                else return array(
-                    'status' => 4,
-                    'error' => 'No authtoken found in dAmn client'
-                );
-                                  
-                // Because errors still happen, we need to make sure we now have an array!
-                if(!$cookie)
-                return array(
-                        'status' => 5,
-                        'error' => 'Malformed cookie returned'
-                );
-                // We got a valid cookie!
-                return $cookie;
-                
-        }
-        
-        function send_headers($socket, $host, $url, $referer, $post=null, $cookies=array())
-        {
-            try
-            {
-                $headers = "";
-                if (isset($post))
-                    $headers .= "POST {$url} HTTP/1.1\r\n";
-                else $headers .= "GET {$url} HTTP/1.1\r\n";
-                $headers .= "Host: {$host}\r\n";
-                $headers .= "User-Agent: Penis\r\n";
-                $headers .= "Referer: {$referer}\r\n";
-                if ($cookies != array())
-                    $headers .= "Cookie: ".implode("; ", $cookies)."\r\n";
-                $headers .= "Connection: close\r\n";
-                $headers .= "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*\/*;q=0.8\r\n";
-                $headers .= "Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n";
-                $headers .= "Content-Type: application/x-www-form-urlencoded\r\n";
-                if (isset($post))
-                    $headers .= "Content-Length: ".strlen($post)."\r\n\r\n{$post}";
-                else $headers .= "\r\n";
-                $response = "";
-                //echo "OUTGOING:\n\n$headers\n\n";
-                fputs($socket, $headers);
-                while (!@feof ($socket)) $response .= @fgets ($socket, 8192);
-                return $response;
-            }
-            catch (Exception $e)
-            {
-                echo "Exception occured: ".$e->getMessage()."\n";
-                return "";
-            }
-        }
-	/**
-	 *Timeout
-	 *
-	 *@return void
-	 *@author SubjectX52873M <SubjectX52873M@gmail.com>
-	 *@origin Dante 0.2
-	 *@version 0.5
-	 */
+	*Timeout
+	*
+	*@return void
+	*@author SubjectX52873M <SubjectX52873M@gmail.com>
+	*@origin Dante 0.2
+	*@version 0.5
+	*/
 	function timeout() {
 		global $packetping;
 		if ( !isset( $packetping ) ) $packetping = microtime( TRUE );
 		$ping = microtime( TRUE ) - $packetping;
-		if ( $ping > 100 && $packetping !== NULL ) {
+		if ( $ping > 300 && $packetping !== NULL ) {
 			intmsg( "Timeout detected" );
 			$packetping = NULL;
-			//$this->connected = FALSE;
+			$this->reconnect();
+			$this->connected = FALSE;
 		}
 	}
-
-
 
 	/**
 	 * Process Symbol
 	 *
-	 * This accepts the symbol that sit in front of a deviant's name and returns the type as a string.
+	 * This accepts the symbol that sits in front of a deviant's name and returns the type as a string.
 	 *
 	 * Example: dAmn::symproc('~') returns "Member" and dAmn::symproc('*') returns "Subscriber"
 	 *
@@ -990,26 +923,26 @@ class dAmn {
 		$symbols = array(
 			'~' => 'Member',
 			'-' => 'Shop Account',
-			'*' => 'Subscriber',
+			'*' => 'Premium Member',
 			'=' => 'Official Beta Tester',
 			'`' => 'Former Staff or Senior Member',
-			'�' => 'Alumni Staff',
+			'°' => 'Alumni Staff',
 			'#' => 'Art Group Member',
 			'@' => 'Shoutbox/dAmn Staff',
 			':' => 'Premium Content Staff',
-			'�' => 'Policy Enforcement Staff',
+			'£' => 'Policy Enforcement Staff',
 			'%' => 'deviantART Prints Staff',
 			'+' => 'General Staff',
-			'�' => 'Creative Staff',
+			'¢' => 'Creative Staff',
 			'^' => 'Gallery Director',
 			'$' => 'Core Administrator',
 			'!' => 'Banned User'
-		 );
-		 if( array_key_exists( $symbol, $symbols ) ) {
-		 	return $symbols[$symbol];
-		 } else {
-		 	return 'Unknown Type ('.$symbol.')';
-		 }
+		);
+		if( array_key_exists( $symbol, $symbols ) ) {
+			return $symbols[$symbol];
+		} else {
+			return 'Unknown Type ('.$symbol.')';
+		}
 	}
 
 	/**
@@ -1064,7 +997,6 @@ class dAmn {
 				break;
 			case "ping":
 				$this->pingpong();
-				echo "PING??? PONG!!!\n";
 				$event = "ping";
 				break;
 			case "join":
@@ -1075,9 +1007,6 @@ class dAmn {
 				if( $params['1']['e'] == "ok" ){
 					//New room class
 					if( !isset( $this->room[$cc] ) ) $this->room[$cc] = new Room( $cc );
-					if($c == "#DataShare"){
-						DataShare('j');
-					}
 					$event = "join-success";
 					include f( "system/callables/event.php" );
 				} else {
@@ -1125,7 +1054,7 @@ class dAmn {
 				if( $params[1]['e'] == "ok" ){
 					$output = "Parted $c.";
 					registerChat( "** " . $output, $c );
-					//$thisRoom = clone $this->room[$c];
+					$thisRoom = clone $this->room[$cc];
 					unset( $this->room[$cc] );
 					$event = "part-success";
 					include f( "system/callables/event.php" );
@@ -1144,21 +1073,20 @@ class dAmn {
 						global $config;
 						$from = $params[2]['from'];
 						$message = trim( $params[3] );
-						if( pchatParse::isData( $message,$c ) && $from == $config['bot']['username'] ) {
+					//	$str = ("<abbr title=\"colors:", $message);
+						//$message = $str[0];
+						if( pchatParse::isData( $message, $c ) && $from == $config->bot['username'] ) {
 							$info = pchatParse::$data;
 							$c = $chatroom = pchatParse::$room;
 							$event = "pchatParse";
-							if(substr($message, 0, 4) == "DDS:") DataShare($from, $message, $c);
 						} else {
 							$output = "[{$c}] <{$from}> {$message}";
 							if( !empty( $output ) ) registerChat( $output, $c );
-							//$this->joinroom($cc);
-							//$userdata = $this->room[$cc]->getUserData( $from );
+							if( is_object( $this->room[$cc] ) ) {
+								$userdata = $this->room[$cc]->getUserData( $from );
+							}
 							processMessage( $message, $params[2]['from'], $c, $params[1][0] );
 							$event = "recv-msg";
-							if($c == "#DataShare"){
-								DataShare($from, $message);
-							}
 						}
 						break;
 					case "action":
@@ -1184,7 +1112,9 @@ class dAmn {
 						$output = "[{$c}] ** {$params[1][1]} has left" . ( ( !empty( $params[2]['r'] ) ) ? ( " ({$params[2]['r']})" ) : ( "" ) );
 						$from = $params[1][1];
 						//Unregister user
-						$userdata = $this->room[$cc]->getUserData( $from );
+						if( is_object( $cc ) ){
+							$userdata = $this->room[$cc]->getUserData( $from );
+						}
 						$count = $this->room[$cc]->userParted( $from );
 						if( !empty( $output ) ){ eLog( "Joined {$count} times", $c, FALSE );
 						registerChat( $output, $c );}
@@ -1266,7 +1196,7 @@ class dAmn {
 									$by = $params[2]["by"];
 									$pc = $params[2]["name"];
 									$n = $params[2]['n'];
-									$output = "[{$c}] ** Privilege class '{$prev}' has been removed by {$by} -- " . intval( $n ) . " members were affected.";
+									$output = "[{$c}] ** Privilege class '{$pc}' has been removed by {$by} -- " . intval( $n ) . " members were affected.";
 								}
 								$this->room[$cc]->removePC( $pc );
 								if( !empty( $output ) ){ registerChat( $output, $c ); }
@@ -1279,8 +1209,6 @@ class dAmn {
 									$say = "<strong><u>Privclass list for {$c}</u></strong><br>";
 									foreach( $params[3] as $pc => $privs ) {
 										$say .= "<strong>$pc: </strong> $privs<br>";
-										$config['testing'][$pc] = $privs;
-										save_config("testing");
 									}
 									$this->say( "$say",$adminroom );
 									$adminroom = '';
@@ -1359,8 +1287,9 @@ class dAmn {
 					case "info": 
 						global $latestwhois, $whoisroom;
 						$chatroom = $c = array_pop( $whoisroom );
-						$latestwhois[$username] = $params;
-						$latestwhois[$username]['updated'] = time();
+						$username = $params[2]['name'];
+						$latestwhois[strtolower( $username )] = $params;
+						$latestwhois[strtolower( $username )]['updated'] = time();
 						$event = "whois";
 						break;
 				}
