@@ -1,0 +1,114 @@
+COMMAND VARAIBLES
+These are the varaibles available to commands in modules.
+  $args[] //$args[0] is the command name, $arguments[0] is undefined
+	$argsF //Full message available
+	$argsE[]
+	$from
+	$chatroom = $c
+	$msgtype
+	$dAmn
+	$config->df[]
+	$user
+	$events
+	$whoisroom
+	$latestwhois[$username]
+	$modules
+
+EVENTS
+#authtoken
+	 $config->bot['authtoken']
+#authtoken-fail
+	no variables
+#ALL Below
+	$rawdata = full unparsed packet
+
+#handshake
+	$param = server version
+	
+#Login (login, login-success)
+	$param = message (array)
+	(see protocol  & source)
+	
+#ping
+	no variables
+	
+#join (join, join-success)
+	$chatroom = $c = room name
+#join-fail
+	$param = message (array)
+	(see protocol & source)
+	
+#get
+	(see source)
+	
+#part
+	$chatroom  = room name (chat:name format)
+	-use degenerateChatName($c) for "name" format and regenerateChatName($c) for "#name" format
+#part-success
+	$c = $chatroom = room name
+#part-success
+	$param['e']= error message
+#kicked 
+	
+#recv (all)
+	$c = $chatroom = room name
+#recv-msg
+	$from = user from
+	$message = $message
+#recv-action (/me stuff)
+	$from = user from
+	$message = $message
+#recv-join
+	$from = user that joined
+	$rooms[degenerateChatName($c)]['members'][$from] = infomation about user
+#recv-part
+	$from = user that parted
+#recv-kicked
+	$from = user that was kicked
+	$by = user kicking $from
+	$message = kick message
+#recv-privchg
+	$from = user being pro/demoted
+	$by = user pro/demoting $from
+	$message = level name
+	(You can use $rooms[degenerateChatName($chatroom)]["privclasses"][$message] to get the level of the privclass)
+#recv-admin
+	$action[1] = type of admin action. 
+	See source.
+	
+#property (ALL)
+	$c = $chatroom = room name
+#property-privclasses
+	$rooms[degenerateChatName($chatroom)]['privclasses'][level] = name;
+	$rooms[degenerateChatName($chatroom)]['privclasses'][name] = level;
+	(no other info)
+#property-members
+	$rooms[degenerateChatName($chatroom)]["members"]
+	(This is not working atm)
+#property-title
+	$message = title
+	$by = user that set title
+	$ts = raw timestamp
+	$rooms[degenerateChatName($chatroom)]["title"]=array(
+	value => $message,
+	by => $by,
+	time => (converted timestamp))
+#property-title
+	$message = title
+	$by = user that set title
+	$ts = raw timestamp
+	$rooms[degenerateChatName($chatroom)]["title"]=array(
+	value => $message,
+	by => $by,
+	time => (converted timestamp))
+#property-topic
+	$message = topic
+	$by = user that set topic
+	$ts = raw timestamp
+	$rooms[degenerateChatName($chatroom)]["topic"]=array(
+	value => $message,
+	by => $by,
+	time => (converted timestamp))
+#property-info
+	$username = Whoised user
+	$latestwhois[$username] = data from whois
