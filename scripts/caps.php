@@ -1,11 +1,11 @@
 <?php
 // DANTE SCRIPT ======
 // Name: CAPS
-// Description: Toggle caps lock spam or convert a message to all caps. :3c
+// Description: Toggle caps lock spam or convert a message to all caps.
 // Author: Wizard-Kgalm 
-// Version: 1.0
+// Version: 1.2
 // Priv: default
-// Help:  "??caps on/off" OR "??caps (#room) message" The #room is optional. :3
+// Help:  "{tr]caps on/off" OR "{tr}caps (#room) message" The #room is optional.
 // ====================
 if( $args[1] == "on" ){
   $config->df['caps']['on'] = TRUE;
