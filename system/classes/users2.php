@@ -19,12 +19,12 @@
 
 class users {
 
-  public $ignoreList;
+	public $ignoreList;
 
 	function users() { // Initialization command.
 		global $config;
 		$this->standardUserArray = array(			// NOTE! This is only how the privclasses are set when the bot first launches.
-			'users' => array(),	// REFER TO THE BOT MANUAL on how to rename and add/remove privclasses!
+			'users' => array(),	// REFER TO THE BOT MANUAL on how to rename and add/remove privclasses! (Because if you're editting this, you'll want to.)
 			'groups' => array( 
 				99 => array(
 					"name" 	=>	"Owners",
@@ -32,30 +32,30 @@ class users {
 					'time'	=>	0),
 				75 => array(
 					"name" => 	"Admins",
-					'priv'=>	75,
-					'time'=>	0),
+					'priv' =>	75,
+					'time' =>	0),
 				50 => array(
 					"name" => 	"Operators",
-					'priv'=>	50,
-					'time'=>	0),
+					'priv' =>	50,
+					'time' =>	0),
 				25 => array(
 					"name" => 	"Members",
-					'priv'=>	25,
-					'time'=>	0),
+					'priv' =>	25,
+					'time' =>	0),
 				0 => array(
-					"name" 	=> 	"Guests",
-					'priv'	=>	0,
-					'time'	=>	0),
+					"name" => 	"Guests",
+					'priv' =>	0,
+					'time' =>	0),
 				-1 => array(
 					"name" => 	"Banned",
-					'priv'=>	-1,
-					'time'=>	0),
+					'priv' =>	-1,
+					'time' =>	0),
 			),
 		);
-		if( !is_array( $config['users'] ) ) $config['users'] = array();
-		if ( !array_key_exists( 'groups', $config['users'] ) || !array_key_exists( 'users', $config['users'] ) ) {
-			$config['users'] = $this->standardUserArray;
-			save_config( 'users' );
+		if( !is_array( $config->df['users'] ) ) $config->df['users'] = array();
+		if ( !array_key_exists( 'groups', $config->df['users'] ) || !array_key_exists( 'users', $config->df['users'] ) ) {
+			$config->df['users'] = $this->standardUserArray;
+			$config->save_info( "./config/users.df", $config->df['users'] ); 
 		}
 		$this->ignoreList = array();
 	}
@@ -70,14 +70,14 @@ class users {
 		global $config;
 		$user = strtolower( $username );
 		if( !is_numeric( $id ) ) $id = $this->getClassByName( $id );
-		if( !array_key_exists( $id, $config['users']['groups'] ) ) return FALSE;
+		if( !array_key_exists( $id, $config->df['users']['groups'] ) ) return FALSE;
 		$data = array(
 			'name'	=>	$username,
 			'time'	=>	time(),
 			'priv'	=>	$id);
-		$config['users']['users'][$user] = $data;
-		ksort( $config['users']['users'] );
-		save_config( 'users' );
+		$config->df['users']['users'][$user] = $data;
+		ksort( $config->df['users']['users'] );
+		$config->save_info( "./config/users.df", $config->df['users'] ); 
 		return true;
 	}
 
@@ -88,8 +88,8 @@ class users {
 	function getInfo( $username, $id ) {
 		global $config;
 		$user = strtolower( $username );
-		if( !array_key_exists( $user, $config['users']['users'] ) ) return false;
-		else return $config['users']['users'][$user];
+		if( !array_key_exists( $user, $config->df['users']['users'] ) ) return false;
+		else return $config->df['users']['users'][$user];
 	}
 	/**
 	 *Remove a user
@@ -98,10 +98,10 @@ class users {
 	function remove( $username ) {
 		global $config;
 		$user = strtolower( $username );
-		if( !array_key_exists( $user, $config['users']['users'] ) ) return false;
-		unset( $config['users']['users'][$user] );
-		ksort( $config['users']['users'] );
-		save_config( 'users' );
+		if( !array_key_exists( $user, $config->df['users']['users'] ) ) return false;
+		unset( $config->df['users']['users'][$user] );
+		ksort( $config->df['users']['users'] );
+		$config->save_info( "./config/users.df", $config->df['users'] ); 
 		return true;
 	}
 
@@ -118,14 +118,14 @@ class users {
 	function has( $username, $privclass, $event = FALSE ) {
 		global $config;
 		$user = strtolower( $username );
-		if( $user == strtolower( $config['bot']['owner'] ) ) return TRUE;
+		if( $user == strtolower( $config->bot['owner'] ) ) return TRUE;
 		if ( !is_numeric( $privclass ) ) {
-			if( $event ) $privclass = $config['access']['default']['events'];
-			else $privclass = $config['access']['default']['commands'];
+			if( $event ) $privclass = $config->df['access']['default']['events'];
+			else $privclass = $config->df['access']['default']['commands'];
 		}
 			
-		if( array_key_exists( $user,$config['users']['users'] ) ) $lowestpriv = $config['users']['users'][$user]['priv'];
-		else $lowestpriv = $config['access']['default']['guests'];
+		if( array_key_exists( $user, $config->df['users']['users'] ) ) $lowestpriv = $config->df['users']['users'][$user]['priv'];
+		else $lowestpriv = $config->df['access']['default']['guests'];
 		if( $lowestpriv >= $privclass ) return true;
 		else return false;
 	}
@@ -140,8 +140,8 @@ class users {
 	function getPriv( $username ) {
 		global $config;
 		$user = strtolower( $username );
-		if( array_key_exists( $user, $config['users']['users'] ) ) return $config['users']['users'][$user]['priv'];
-		else return $config['access']['default']['guests'];
+		if( array_key_exists( $user, $config->df['users']['users'] ) ) return $config->df['users']['users'][$user]['priv'];
+		else return $config->df['access']['default']['guests'];
 	}
 
 	/**
@@ -150,7 +150,7 @@ class users {
 	 */
 	function getClassIdFromName( $classname ) {
 		global $config;
-		foreach( $config['users']['groups'] as $i => $data ) {
+		foreach( $config->df['users']['groups'] as $i => $data ) {
 			if( $data['name'] == $classname ) return $i;
 		}
 		return false;
@@ -162,8 +162,8 @@ class users {
 	 */
 	function getClassNameFromId( $classid ) {
 		global $config;
-		if( array_key_exists( $classid, $config['users']['groups'] ) && is_numeric( $classid ) ) {
-			return $config['users']['groups'][$classid]['name'];
+		if( array_key_exists( $classid, $config->df['users']['groups'] ) && is_numeric( $classid ) ) {
+			return $config->df['users']['groups'][$classid]['name'];
 		} else return false;
 	}
 
@@ -185,15 +185,15 @@ class users {
 	 */
 	function addPrivclass( $classid, $classname ) {
 		global $config;
-		if( !array_key_exists( $classid, $config['users']['groups'] ) && $this->getClassIdFromName( $classname ) === FALSE && is_numeric( $classid ) ) {
+		if( !array_key_exists( $classid, $config->df['users']['groups'] ) && $this->getClassIdFromName( $classname ) === FALSE && is_numeric( $classid ) ) {
 			$data = array(
 				'name'	=>	$classname,
 				'time'	=>	time(),
 				'priv'	=>	$classid
 			);
-			$config['users']['groups'][$classid] = $data;
-			ksort( $config['users']['groups'] );
-			save_config( 'users' );
+			$config->df['users']['groups'][$classid] = $data;
+			ksort( $config->df['users']['groups'] );
+			$config->save_info( "./config/users.df", $config->df['users'] ); 
 			return true;
 		} else return false;
 	}
@@ -204,9 +204,9 @@ class users {
 	function renamePrivclass( $classid, $newname ) { // Removes privclass AND everyone in it.
 		if( !is_numeric( $classid ) ) $classid = $this->getClassIdFromName( $classid );
 		global $config;
-		if( array_key_exists( $classid, $config['users']['groups'] ) && is_numeric( $classid ) ) {
-			$config['users']['groups'][$classid]['name'] = $newname;
-			save_config( 'users' );
+		if( array_key_exists( $classid, $config->df['users']['groups'] ) && is_numeric( $classid ) ) {
+			$config->df['users']['groups'][$classid]['name'] = $newname;
+			$config->save_info( "./config/users.df", $config->df['users'] ); 
 			return TRUE;
 		}else return FALSE;
 	}
@@ -218,18 +218,18 @@ class users {
 	 */
 	function removePrivclass( $classid ) { // Removes privclass AND everyone in it.
 		global $config;
-		if( array_key_exists( $classid, $config['users']['groups'] ) && is_numeric( $classid )&& !$this->isResPrivclass( $classid ) ) {
-			unset( $config['users']['groups'][$classid] );
-			ksort( $config['users']['groups'] );
+		if( array_key_exists( $classid, $config->df['users']['groups'] ) && is_numeric( $classid )&& !$this->isResPrivclass( $classid ) ) {
+			unset( $config->df['users']['groups'][$classid] );
+			ksort( $config->df['users']['groups'] );
 			$i = 0;
-			foreach( $config['users']['users'] as $name => $data ) {
+			foreach( $config->df['users']['users'] as $name => $data ) {
 				if ( $data['priv']==$classid ) {
-					unset( $config['users']['users'][$name] );
+					unset( $config->df['users']['users'][$name] );
 					$i++;
 				}
 			}
 			return $i;
-			save_config( 'users' );
+			$config->save_info( "./config/users.df", $config->df['users'] ); 
 		}else return FALSE;
 	}
 
@@ -240,10 +240,10 @@ class users {
 	function getUserList() {
 		global $config;
 		$return = array();
-		foreach( $config['users']['groups'] as $i => $group ) {
+		foreach( $config->df['users']['groups'] as $i => $group ) {
 			$return[$i] = array();
 		}
-		foreach( $config['users']['users'] as $i => $user ) {
+		foreach( $config->df['users']['users'] as $i => $user ) {
 			$return[$user['priv']][] = $user['name'];
 		}
 		return $return;
@@ -257,7 +257,7 @@ class users {
 		$u = $user;
 		$user = strtolower( $user );
 		global $config;
-		if( $user == strtolower( $config['bot']['owner'] ) ) return false;
+		if( $user == strtolower( $config->bot['owner'] ) ) return false;
 		else return array_key_exists( $user, $this->ignoreList );
 	}
 	/**
@@ -268,7 +268,7 @@ class users {
 		$u = $user;
 		$user = strtolower( $user );
 		global $config;
-		if( strtolower( $user ) == strtolower( $config['bot']['owner'] ) ) return false;
+		if( strtolower( $user ) == strtolower( $config->bot['owner'] ) ) return false;
 		if( $this->isIgnored( $user ) ) return FALSE;
 		else{ 
 			$this->ignoreList[$user] = $u;
@@ -295,7 +295,6 @@ class users {
 	 */
 	function unignore( $user ) {
 		$u = $user;
-		global $config;
 		if( !$this->isIgnored( $user ) ) {
 			$i = array_search( strtolower( $user ), $this->ignoreList );
 			unset( $this->ignoreList[$i] );
