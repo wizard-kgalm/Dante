@@ -387,10 +387,12 @@ switch($args[0] ) {
 			return $dAmn->say( "$from: Usage: {$tr}$args[0] [room]. [Room] is the room you would like me to $args[0].", $c );
 		}
 		$chatroom = generateChatName( $args[1] );
-		if ( ( in_array( $chatroom, $officialchats ) && $args[2] != 'override' ) || !$user->has( $from, 99 ) ) {
-			return $dAmn->say( "$from: Unable to join {$chatroom}. Owner override needed.", $c );
-		} elseif( in_array( $chatroom, $officialchats ) && strtolower( $args[2] ) == "override" ) {
-				$dAmn->say( "$from: Override accepted", $c );
+		if( $args[0] !== "part" ) {
+			if ( ( in_array( $chatroom, $officialchats ) && ( strtolower( $args[2] ) !== "override"  && strtolower( $args[2] ) !== "confirm" ) ) || !$user->has( $from, 99 ) ) {
+				return $dAmn->say( "$from: Unable to join {$chatroom}. Owner override needed.", $c );
+			} elseif( ( in_array( $chatroom, $officialchats ) && ( strtolower( $args[2] ) == "override"  || strtolower( $args[2] ) == "confirm" ) ) ) {
+					$dAmn->say( "$from: Override accepted", $c );
+			}
 		}
 		$dAmn->joinRoom( $chatroom, $commandname );
 	break;
