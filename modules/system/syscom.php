@@ -209,11 +209,10 @@ switch($args[0] ) {
 		
 	//D
 	case "do":
-		if ( $argsF == '' ) {
-			 $dAmn->say( "Usage: (#Chatroom) [command] [user] [message]", $c );
-			 break;
+		if ( empty( $argsF ) ) {
+			return $dAmn->say( "Usage: (#Chatroom) [command] [user] [message]", $c );
 		}
-		if ( substr( $args[1], 0, 1 ) == "#" || substr( $args[1], 0, 1 ) == "@" ) {
+		if ( $args[1] == rChatName( $args[1] ) || substr( $args[1], 0, 1 ) == "@" ) {
 			// There is a chat room
 			$channel  	= $args[1];
 			$com 		= $args[2];
@@ -249,14 +248,14 @@ switch($args[0] ) {
 					$say = "Flood Protection enabled. Spammers beware.";
 				} else $say = "Flood Protection is already on.";
 				$cancel = TRUE;
-				break;
+			break;
 			case "off":
 				if( $flood->off() ) {
 					$a['use'] = FALSE;
 					$say = "Flood Protection disabled.";
 				} else $say = "Flood Protection is already off.";
 				$cancel = TRUE;
-				break;
+			break;
 			case "status":
 				$say = "<b><u>Flood Protection Settings</u></b>" .
 				"<br><i>Exempt Level:</i> " . $a['privs'] . " and above" .
@@ -268,50 +267,50 @@ switch($args[0] ) {
 				"<br><i>Strikes Allowed:</i> " . $flood->setRTime() .
 				"<br><i>Ignore Time:</i> " . timeString( $flood->setRTimeout(), TRUE );
 				$cancel = TRUE;
-				break;
+			break;
 			case "priv":
 				if( is_numeric( $args[2] ) ) {
 					$x = accessFix( $args[2] );
 					$a['privs'] = $x;
 					$say = "Privlevel $x and above are exempt from Flood Protection.";
 				} else $say = "Numeric Input Required";
-				break;
+			break;
 			case "period":
 				if( $flood->setPeriod( $args[2] ) ) {
 					$a['period'] = intval( $args[2] );
 					$say = "Set";
 				} else $say = "Error";
-				break;
+			break;
 			case "time":
 				if( $flood->setTime( $args[2] ) ) {
 					$a['times'] = intval( $args[2] );
 					$say = "Set";
 				} else $say = "Error";
-				break;
+			break;
 			case "timeout":
 				if( $flood->setTimeout( $args[2] ) ) {
 					$a['timeout'] = intval( $args[2] );
 					$say = "Set";
 				} else $say = "Error";
-				break;
+			break;
 			case "rperiod":
 				if( $flood->setRPeriod( $args[2] ) ) {
 					$a['rperiod'] = intval( $args[2] );
 					$say = "Set";
 				} else $say = "Error";
-				break;
+			break;
 			case "rtime":
 				if( $flood->setRTime( $args[2] ) ) {
 					$a['rtime'] = intval( $args[2] );
 					$say = "Set";
 				} else $say = "Error";
-				break;
+			break;
 			case "rtimeout":
 				if( $flood->setRTimeout( $args[2] ) ) {
 					$a['rtimeout'] = intval( $args[2] );
 					$say = "Set";
 				} else $say = "Error";
-				break;
+			break;
 			case "repeating":
 				if( $args[2] == "on" ) {
 					$flood->setRepeating( TRUE );
@@ -322,18 +321,18 @@ switch($args[0] ) {
 					$say = "Repeat Flooding watch is off";
 					$a['ruse'] = FALSE;
 				} else $say = "on or off";
-				break;
+			break;
 		}
 		$config->df['access']['flood'] = $a;
 		$config->save_info( "./config/access.df", $config->df['access'] );
 		$dAmn->say( $say, $c );
-		break;
+	break;
 	//G
 	
 	//H
 	case "help":
 		if ( $args[1] == '' ) {
-			$dAmn->say( "$f Usage: \"help [command]\"", $c );
+			$dAmn->say( "$from: Usage: \"help [command]\"", $c );
 		} elseif ( isset( $scripts[$args[1]] ) ) {
 			if ( $scripts[$args[1]]['metadata']['Help'] ) {
 				$dAmn->say( $scripts[$args[1]]['metadata']['Help'], $c );
@@ -388,15 +387,10 @@ switch($args[0] ) {
 			return $dAmn->say( "$from: Usage: {$tr}$args[0] [room]. [Room] is the room you would like me to $args[0].", $c );
 		}
 		$chatroom = generateChatName( $args[1] );
-		if ( in_array( $chatroom, $officialchats ) && $args[2] != 'override' ) {
-			$dAmn->say( $f . "Unable to join {$chatroom}. Owner override needed.", $c );
-			break;
-		} elseif ( in_array( $chatroom, $officialchats ) && $args[2] == 'override' ) {
-			if ( !$user->has( $from, 99 ) ) {
-				break;
-			} else {
-				$dAmn->say( $f . "Override accepted", $c );
-			}
+		if ( ( in_array( $chatroom, $officialchats ) && $args[2] != 'override' ) || !$user->has( $from, 99 ) ) {
+			return $dAmn->say( "$from: Unable to join {$chatroom}. Owner override needed.", $c );
+		} elseif( in_array( $chatroom, $officialchats ) && strtolower( $args[2] ) == "override" ) {
+				$dAmn->say( "$from: Override accepted", $c );
 		}
 		$dAmn->joinRoom( $chatroom, $commandname );
 	break;
