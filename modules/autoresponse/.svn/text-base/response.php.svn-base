@@ -1,0 +1,28 @@
+<?php
+$ars =& $config['responses']; // Create a reference.
+global $rFlood;
+
+if(!is_array($ars)){
+	$ars = array();
+}
+
+if ( ( array_key_exists( $message,$ars ) ) AND ( !$rFlood->check( $from ) ) ) {
+	//Format the autoresponse
+	$fnorder 	= 	new fnorder;
+	$fnord 		= 	$fnorder->fnord();
+	$answer 	= 	$ars[$message]['val'];
+	$answer 	= 	str_replace( "{from}", $from, $answer );
+	$answer 	= 	str_replace( "{args}", $argsE[2], $answer );
+	$answer 	= 	str_replace( "{fnord}", $fnord, $answer );
+	foreach( $fnorder->replace as $find => $replace ) {
+		while( preg_match("/" . preg_quote($find) . "/", $answer, $matches ) ) {
+			$answer = preg_replace("/" . preg_quote( $matches[0] ) . "/", $replace[array_rand( $replace ) ], $answer, 1 );
+		}
+	}
+	$fail = FALSE;
+	$dAmn->say( $answer, $c );
+	unset( $fnorder, $fnord, $answer, $find );
+}
+//Clear variables because the bot would otherwise pass variables on to the next module.
+
+unset($ars);

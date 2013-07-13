@@ -1,0 +1,76 @@
+<?php
+
+// Add drinks using same syntax
+global $config;
+if( empty( $config['vending_machine'] ) ) {
+	$config['vending_machine'] = array(
+		'coke',
+		'diet coke',
+		'pepsi',
+		'diet pepsi',
+		'lemonade',
+		'wine',
+		'beer',
+		'mountain dew',
+		'tea',
+		'electictocnet doll',
+		'sprite',
+		'coffee',
+		'root beer',
+		'hot chocolate',
+		'cream soda',
+		'fuzzy dice',
+	);
+	sort( $config['vending_machine'] );
+}
+// Quality of vending machine
+// High # = Better quality
+// 0 quality always jams
+$quality = 5;
+
+$found = in_array( strtolower( $argsE[2] ), $config['vending_machine'] );
+switch( strtolower( $args[1] ) ) {
+	case '':
+		$dAmn->say( "$from: Please order something.", $c );
+		break;
+	case 'add':
+		if( $found ) {
+			$dAmn->say( "Can't add, the machine already stocks {$argsE[2]}.", $c );
+		} else {
+			$dAmn->say( "{$argsE[2]} added!", $c );
+			$config['vending_machine'][] = strtolower( $argsE[2] );
+			sort( $config['vending_machine'] );
+			save_config( 'vending_machine' );
+		}
+		break;
+	case 'del':
+		if( $found ) {
+			$dAmn->say( "{$argsE[2]} removed!", $c );
+			unset( $config['vending_machine'][strtolower( $argsE[2] )] );
+			save_config( 'vending_machine' );
+		} else {
+			$dAmn->say( "Can't remove, the machine doesn't stock {$argsE[2]}.", $c );
+		}
+		break;
+	case 'list':
+		$dAmn->say( "The machine stocks: " . implode(", ", $config['vending_machine'] ), $c );
+		break;
+	default:
+		if( !in_array( strtolower( $argsF ), $config['vending_machine'] ) ) {
+			$dAmn->say( "$f The machine doesn't stock $argsF.", $c );
+			return;
+		}
+		$items	=	count( $config['vending_machine'] );
+		$max	=	intval( floor( ( $items * $quality ) + 1 ) );
+		$get	=	mt_rand( 1, $max );
+		$jam	=	intval( floor( .5 * $items ) );
+		$oops	=	$items;
+		$i		=	array_rand( $config['vending_machine'] );
+		$vend	=	$config['vending_machine'][$i];
+		if( $vend == strtolower( $argsF ) ) $get = $oops + 1;
+		if( $jam > $get ) $dAmn->say( "$f It's jammed. :thumb14796735:", $c );
+		elseif( $oops > $get ) $dAmn->say( "$f You got a $vend. :shakefist: ", $c );
+		else $dAmn->say( "$f Here is your $argsF.", $c );
+		break;
+}
+?>

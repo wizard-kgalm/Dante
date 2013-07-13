@@ -1,0 +1,89 @@
+SpamFilter 1.1 Command Guide.
+
+For SpamFilter to work in a chatroom, it must have promote/demote priveleges. The bot that SpamFilter is runned on must be an admin in the channel, where it can ban/unban, promote/demote users.
+
+
+Command and Examples
+
+!spamfilter on | !spamfilter #room on
+      Turns SpamFilter on with the default settings in #Chatroom . ( #room is optional)
+
+!spamfilter off | !spamfilter #room off
+      Turns SpamFilter off with the default settings in #Chatroom . ( #room is optional)
+
+!spamfilter #room [add/del] #chatroom
+      Delete a SpamFilter chatroom (Note: Users that were banned or silenced during this time will not be repromoted)
+      e.g
+      !spamfilter del #Botdom
+
+!spamfilter #room list #chatroom [kicked/banned/silenced]
+     List the kicked, banned or silenced users in #chatroom.
+
+!spamfilter #room list #chatroom 
+     List #chatroom SpamFilter settings.
+
+!spamfilter #room list
+     List all SpamFilter chatrooms and there current status.
+
+!spamfilter #room silence [privclass/clear]
+    Set the Silence privclass for the chatroom
+    e.g
+    !spamfilter silence Speechless  - Turns the Mode to Kick then Silence.
+    !spamfilter silence clear - Turns the Mode to Kick then Ban.
+
+!spamfilter #room setban [time]
+    Set the ban time in seconds.
+    e.g 
+    !spamfilter setban 86400 - Sets the Ban time for 1 day.
+
+!spamfilter #room setsilence [time]
+    Set the silence time in seconds.
+    e.g 
+    !spamfilter setban 900 - Sets the Silence time for 15 minutes
+
+!spamfilter #room setkick [amount]
+    Set the amount of kicks before someone is Banned or Silenced
+    e.g
+    !spamfilter setkick 3 - Three kicks then Ban/Silenced according to mode.
+
+!spamfilter #room msgrep [limit]
+   Set the amount of times a message can be repeated in the chat.
+   e.g
+   !spamfilter msgrep 3 - Messages can only be repeated 3 times, if greater you will be kicked.
+
+!spamfilter #room msgquant [limit]
+   Set the amount of words in a message can hold in the chat when being posted.
+   e.g
+   !spamfilter msgquant 400 - Messages can only be 400 words in length , if greater you will be kicked.
+
+!spamfilter #room wordlength [limit]
+   Set the amount of letters/characters a word must be in length.
+   e.g
+   !spamfilter msgquant 150 - Words can only be 150 characters in length , if greater you will be kicked.
+
+!spamfilter #room clear [kicked/silenced/banned/all]
+   Clear the kicked, silenced, banned or all 3 of users.  Those who were banned and/or silenced will be repromoted to the last privclass they were in.
+
+!spamfilter #room clear [username]
+    Remove a user from the banned/silenced/kicked users just by their username input.
+
+
+SpamFilter Default Settings
+
+These are the defaults settings when SpamFilter is initiated in a chatroom.
+SpamFilter settings can be varied depending on the chatroom. The only global variable is the KICK variable where it will be the same in any chatroom for the amount of times kicked.
+
+Kick = 3 times
+On = true
+Silence Privclass = "" (The Mode will be Kick then Ban, the mode is only switched when you add a Silence Privclass, then it will be Kick then Silence , in that case )
+Silence Time = 900 seconds (15 minutes)
+Banned Time = 86400 seconds (1 day)
+Message Repetition = 3 SAME messages allowed.
+Message Quantity = 400 WORDS allowed in a message.
+Word Length = 150 CHARACTERS/LETTERS allowed in a word.
+
+
+
+
+For any improvements or questions note Magaman or nudge him on dAmn :D
+

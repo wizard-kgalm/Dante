@@ -1,0 +1,20 @@
+<?php
+switch( $args[0] ) {
+	case 'away':
+		$to = strtolower( $from );
+		$config['away'][$to] = array(
+			'name'	=>	$from,
+			'ts'	=>	array(	strtolower( $c )	=>	time()	),
+			'msg'	=>	$argsF,
+		);
+		save_config( 'away' );
+		$dAmn->say( "$from is now away. ($argsF)", $c );
+		break;
+	case 'back':
+		$to = strtolower( $from );
+		unset( $config['away'][$to] );
+		save_config( 'away' );
+		$dAmn->say( "$from has returned from away.", $c );
+		break;
+}
+?>

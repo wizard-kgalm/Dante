@@ -1,0 +1,153 @@
+<?php
+
+$query = $argsF;
+$num = strlen( $matches[1] ); // Gooooooooooogle (result count counting on o's.)
+
+if( $query == "" ) { $dAmn->say( $f . "This command is for searching on Google. The more o's you put in Gooooogle, the more results the bot will return.<br /><sup>Example: <i>" . $tr . "goooogle test</i> returns 4 results.</sup>", $c ); return; }
+
+// Keep from spamming, so limit to 10 results max.
+if( empty( $num ) ) $num = 3;
+if( $num > 10 ) $num = 10;
+$noheaders = $urlonly = $titleonly = $safesearch = FALSE;
+
+if( preg_match_all( "/--([a-z0-9]*)( [a-z0-9]*)?/i", $query, $matches ) ) {
+	foreach( $matches[1] as $number => $optionname ) {
+		switch( strtolower( $optionname ) ) {
+			case "titleonly":
+				$query = str_ireplace( "--" . $optionname, "", $query );
+				$titleonly = TRUE; $urlonly = FALSE;
+				break;
+			case "urlonly":
+				$query = str_ireplace( "--" . $optionname, "", $query );
+				$urlonly = TRUE; $titleonly = FALSE;
+				break;
+			case "noheaders":
+				$query = str_ireplace( "--" . $optionname, "", $query );
+				$noheaders = TRUE;
+				break;
+			case "safesearch":
+				$query = str_ireplace( $matches[0][$number], "", $query );
+				if( !empty( $matches[2][$number] ) ) {
+					switch( strtolower( $matches[2][$number] ) ) {
+						case "on":
+						case "true":
+						case "yes":
+							$safesearch = TRUE;
+							break;
+					}
+				}
+				break;
+			case "results":
+				$query = str_ireplace( $matches[0][$number], "", $query );
+				if( !empty( $matches[2][$number] ) ) {
+					if( $matches[2][$number] > 0 && $matches[2][$number] < 11 ) {
+						$num = $matches[2][$number];
+					}
+				}
+				break;
+		}
+	}
+	$query = trim( $query );
+}
+
+// Let's do it!
+
+// Decide whether to use our soapclient or PHP's
+if( defined( 'PHP_SOAP' ) || extension_loaded( 'soap' ) ) { # Using PHP's builtin SOAP.
+	define( 'PHP_SOAP', 1 );
+	
+	$soapclient = new soapclient( "http://api.google.com/GoogleSearch.wsdl" );
+	$results = $soapclient->doGoogleSearch( "tWoiQvdQFHKf3MA84CQ80janIMKY2RF1", $query, 0, intval($num), false, "", $safesearch, '', '', '' );
+
+	if($results->estimatedTotalResultsCount > 0){ // The search returned results
+		if( !$noheaders ) {
+			$text = ":magnify: Results <strong>" . $results->startIndex . " &#8211; " . $results->endIndex . "</strong> of ";
+			if( !$results->estimateIsExact ){ $text .= " about "; }
+			$text .= "<strong>" . number_format( $results->estimatedTotalResultsCount ) . "</strong> for <strong><em>" . $results->searchQuery . "</em></strong>.";
+		}
+		$text .= "<ol>";
+		foreach( $results->resultElements as $num => $result ) {
+			$snippet = str_replace( "<br>", "<br />", $result->snippet );
+			$title = $result->title;
+			$title = str_replace( "<b>", "<i>", $title );
+			$title = str_replace( "</b>", "</i>", $title );
+			$furl = str_replace( "://", ":<b></b>//", htmlentities( $result->URL ) );
+			if( strlen( $furl ) > 70) $furl = substr($furl, 0, 70) . "&#8230;";
+			if($title == "") $title = "[link]";
+			$text .= "<li>";
+			if( !$urlonly ) 				$text .= "<strong><u><a href=\"" . $result->URL . "\">" . $title . "</a></u></strong><br />";
+			if( !$titleonly && !$urlonly ) 	$text .= $snippet . "<br />";
+			if( !$urlonly ) 				$text .= "<sub><em>";
+			if( !$titleonly )				$text .= $furl;
+			if( !$titleonly && !$urlonly )	$text .= "</em> - " . $result->cachedSize . " - <a href=\"http://66.102.7.104/search?q=cache:" . $result->URL . "\">Cached</a>";
+			if( $result->relatedInformationPresent && !$titleonly && !$urlonly ) $text .= " - <a href=\"http://66.102.7.104/search?q=related:" . $result->URL . "\">Similar pages</a><br />&nbsp;";
+			if(!$urlonly) 					$text .= "</sub>";
+			$text .= "</li>";
+		}
+		$text .= "</ol>";
+		if( !$noheaders ) {
+			$text .= ":pointr: Search took " . $results->searchTime . " seconds - <strong><a href=\"http://www.google.com/search?q=" . urlencode( $query ) . "\">Original Google result page</a></strong>";
+			if( !empty( $results->searchTips ) ) $text .= "<sup><br />:lightbulb: <strong>Tip to your search:</strong> " . $results->searchTips . "</sup>";
+		}
+		//$text .= "</sup>";
+	} else { // The search DIDN'T return results
+		$text = $f . "Your <a href=\"http://www.google.com/search?q=" . urlencode($query) . "\">search query</a> didn't return any results.";
+	}
+	return;
+} else { # We use our own.
+	require_once( f( 'system/callables/nusoap.php' ) );
+	
+	$soapclient = new soapclient( 'http://api.google.com/GoogleSearch.wsdl', TRUE );
+	
+	$params = array(
+		"key" 			=> 	"tWoiQvdQFHKf3MA84CQ80janIMKY2RF1",
+		"q" 			=> 	$query,
+		"start" 		=> 	0,
+		"maxResults" 	=> 	intval($num),
+		"filter" 		=> 	false,
+		"restrict" 		=> 	"",
+		"safeSearch" 	=> 	$safesearch,
+		'lr' 			=>	'',
+		'ie' 			=>	'',
+		'oe'			=>	''
+	);
+	$results = $soapclient->call( "doGoogleSearch", $params, "urn:GoogleSearch", "urn:GoogleSearch" ); 
+	print_r($results);
+	if( $results['estimatedTotalResultsCount'] > 0 ) { // The search returned results
+		if( !$noheaders ) {
+			$text = ":magnify: Results <strong>" . $results['startIndex'] . " &#8211; " . $results['endIndex'] . "</strong> of ";
+			if( !$results['estimateIsExact'] ) { $text .= " about "; }
+			$text .= "<strong>" . number_format( $results['estimatedTotalResultsCount'] ) . "</strong> for <strong><em>" . $results['searchQuery'] . "</em></strong>.";
+		}
+		$text .= "<ol>";
+		foreach( $results['resultElements'] as $num => $result ) {
+			$snippet = str_replace( "<br>", "<br />", $result['snippet']);
+			$title = $result['title'];
+			$title = str_replace( "<b>", "<i>", $title );
+			$title = str_replace( "</b>", "</i>", $title );
+			$furl = str_replace( "://", ":<b></b>//", htmlentities( $result['URL'] ) );
+			if( strlen($furl) > 70) $furl = substr( $furl, 0, 70 ) . "&#8230;";
+			if( $title == "" ) $title = "[link]";
+			$text .= "<li>";
+			if( !$urlonly ) 				$text .= "<strong><u><a href=\"" . $result['URL'] . "\">" . $title . "</a></u></strong><br />";
+			if( !$titleonly && !$urlonly ) 	$text .= $snippet . "<br />";
+			if( !$urlonly )					$text .= "<sub><em>";
+			if( !$titleonly ) 				$text .= $furl;
+			if( !$titleonly && !$urlonly )	$text .= "</em> - " . $result->cachedSize . " - <a href=\"http://66.102.7.104/search?q=cache:" . $result['URL'] . "\">Cached</a>";
+			if( $result['relatedInformationPresent'] && !$titleonly && !$urlonly ) $text .= " - <a href=\"http://66.102.7.104/search?q=related:" . $result['URL'] . "\">Similar pages</a><br />&nbsp;";
+			if( !$urlonly ) 				$text .= "</sub>";
+			$text .= "</li>";
+		}
+		$text .= "</ol>";
+		if( !$noheaders ) {
+			$text .= ":pointr: Search took " . $results['searchTime'] . " seconds - <strong><a href=\"http://www.google.com/search?q=" . urlencode($query) . "\">Original Google result page</a></strong>";
+			if( !empty( $results['searchTips'] ) ) $text .= "<sup><br />:lightbulb: <strong>Tip to your search:</strong> " . $results['searchTips'] . "</sup>";
+		}
+		//$text .= "</sup>";
+	} else { // The search DIDN'T return results
+		$text = $f . "Your <a href=\"http://www.google.com/search?q=" . urlencode($query) . "\">search query</a> didn't return any results.";
+	}
+	$dAmn->say($text, $c);
+}
+unset($results, $noheaders, $urlonly, $titleonly, $safesearch, $query, $text, $title, $snippet, $furl, $soapclient, $params, $num);
+?>

@@ -1,0 +1,45 @@
+<?php
+if ( $args[1]=='' ) {
+	$dAmn->say( '"irpg [user]" Gets iRPG scores for [user]', $c );
+} else {
+	$argsF 			= strip_tags( $argsF );
+	$startsearch 	= microtime( true );
+	$scores 		= eval( "return " . @file_get_contents( "http://nol888.lonelypker.net/scriptingoutput.php?act=userinfo&user=" . urlencode( $argsF ) ) . ";" );
+	$rankings		= array_map( "strtolower", eval( "return " . @file_get_contents( "http://nol888.lonelypker.net/scriptingoutput.php?act=top100" ) . ";" ) );
+	$gender 		= @file_get_contents( "http://" . urlencode($argsF) . ".deviantart.com/");
+	if( !$scores ) {
+		$dAmn->say( "$from: $argsF doesn't play iRPG.", $c );
+		return;
+	}
+	$array 		= 	explode( "<div id=\"deviant-info\">", $gender );
+	$array 		= 	explode( "<li class=\"f\">", $array[1] );
+	$array 		= 	array_map( "removeli", $array );
+	$array 		= 	array_map( "strtolower", $array );
+	$gender 	= 	eregi_replace( "/.*", '', $array[3] );
+	if( ( trim( strtolower( $gender ) ) == "male") || ( trim( strtolower( $gender ) ) == "female" ) ) {
+		$genderpossessive = ( trim( strtolower( $gender ) ) == "male" ) ? ( "his" ) : ( "her" );
+		$gender = ( trim( strtolower( $gender ) ) == "male" ) ? ( "He has" ) : ( "She has" );
+	} else {
+		$genderpossessive = "their";
+		$gender = "They have";
+	}
+	$message = "";
+	$tiems = microtime( true ) - $startsearch;
+	$tiems = round( $tiems, 3 );
+	$message .= "<abbr title='$from'></abbr><u>:icon$argsF:iRPG stats for :dev$argsF:</u> (Query took $tiems seconds)<br>";
+	if( strtolower( $scores['align'] ) == "evil" ) $message .= ":bulletblue: $argsF is an evil level {$scores['level']} {$scores['title']}.<br>";
+	else	$message .= ":bulletblue: $argsF is a {$scores['align']} level {$scores['level']} {$scores['title']}.<br>";
+	$message .= ":bulletblue: $gender idled {$scores['score']} with {$scores['penalties']} penalized.<br>";
+	$message .= ":bulletblue: $gender {$scores['tonxtlvl']} to $genderpossessive next level, {$scores['nxtlvlnum']}.<br>";
+	if( in_array( strtolower( trim( $argsF ) ), $rankings ) ) {
+		$gender = eregi_replace( " .*", '', $gender );
+		if( $gender == "They" ) {
+			$message .= ":bulletblue: They are ".array_search( strtolower( trim( $argsF ) ), $rankings ) . " on the top 100.";
+		} else {
+			$message .= ":bulletblue: $gender is ".array_search( strtolower( trim( $argsF ) ), $rankings ) . " on the top 100.";
+		}
+	}
+	$dAmn->say( $message, $c ); 
+	unset( $array, $string, $page, $info, $rankings, $top, $gender );
+}
+?>

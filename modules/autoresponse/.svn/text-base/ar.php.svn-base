@@ -1,0 +1,89 @@
+<?php
+switch( $args[0] ) {
+	case "ar":
+		switch( $args[1] ) {
+			case "add":
+				if ( !empty( $args[2] ) && !empty( $argsE[3] ) ) {
+					$config['autoresponses'][$args[2]]['val'] = $argsE[3];
+					$config['autoresponses'][$args[2]]['by'] = $from;
+					$config['autoresponses'][$args[2]]['ts'] = time();
+					$dAmn->say( $f . "Added!", $c );
+				} else {
+					$dAmn->say( $f . "You need to type a name and a value.", $c );
+				}
+				save_config( 'autoresponses' );
+				break;
+			case "del":
+				if ( !empty( $args[2] ) ) {
+					unset( $config['autoresponses'][$args[2]] );
+					$dAmn->say( $f . "Removed!", $c );
+				} else {
+					$dAmn->say( $f . "You need to type a name.", $c );
+				}
+				save_config( 'autoresponses' );
+				break;
+			case "list":
+				if ( count( $config['autoresponses'] ) <= 0 ) {
+					$dAmn->say( $f . "No autoresponses created yet.", $c );
+				} else {
+					$msg = "<strong>:postit: Autoresponses:</strong><ul>";
+					foreach( $config['autoresponses'] as $arN => $arV ) {
+						$msg .= "<li><strong>" . $tr . $arN . "</strong><sub>, set by :dev" . $arV['by'] . ": at " . date( "r", $arV['ts'] ) . ".</sub></li>";
+					}
+					$dAmn->say( $msg, $c );
+				}
+				break;
+			default:
+				$dAmn->say( $f . "Type <em>" . $tr . $commandname . " add</em> to add a new one. There's also <em>remove</em> and <em>list</em> commands.", $c );
+				break;
+		}
+		break;
+
+	case "response":
+		switch( $args[1] ) {
+			case "add":
+				if ( !empty( $args[2] ) && !empty( $argsE[3] ) ) {
+					if ( !strstr( $argsF, "," ) ) {
+						$dAmn->say( $f . "This command is different from the Noodlebot version. You need a comma to seperate the triggering words and the response. ", $c );
+					} else {
+						$r = explode( ",", $argsE[2] );
+						$r[0] = trim( $r[0] );
+						$config['responses'][$r[0]]['val'] = $r[1];
+						$config['responses'][$r[0]]['by'] = $from;
+						$config['responses'][$r[0]]['ts'] = time();
+						$dAmn->say( $f . "Added!", $c );
+					}
+				} else {
+					$dAmn->say( $f . "You need to type a name and a value.", $c );
+				}
+				save_config( 'responses' );
+				break;
+			case "del":
+				if ( !empty( $argsE[2] ) ) {
+					if ( array_key_exists( $argsE[2], $config['responses'] ) ) {
+						unset( $config['responses'][$argsE[2]] );
+						$dAmn->say( $f . "Removed!", $c );
+					} else $dAmn->say( $f . "Response not in list.", $c );
+				} else {
+					$dAmn->say( $f . "You need to type a name.", $c );
+				}
+				save_config( 'responses' );
+				break;
+			case "list":
+				if ( count( $config['responses'] ) <= 0 ) {
+					$dAmn->say( $f . "There haven't been posted any responses yet.", $c );
+				} else {
+					$msg = "<strong>:postit: Responses:</strong><ul>";
+					foreach( $config['responses'] as $arN => $arV ) {
+						$msg .= "<li><strong>" . $arN . "</strong><sub>, set by :dev" . $arV['by'] . ": at " . date("r", $arV['ts']) . ".</sub></li>";
+					}
+					$dAmn->say( $msg, $c );
+				}
+				break;
+			default:
+				$dAmn->say( $f . "Type <em>" . $tr . $commandname . " add</em> to add a new one. There's also <em>remove</em> and <em>list</em> commands.", $c );
+				break;
+		}
+		break;
+}
+?>

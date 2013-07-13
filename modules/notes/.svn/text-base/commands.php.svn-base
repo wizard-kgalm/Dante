@@ -1,0 +1,52 @@
+<?php
+$to 	=	strtolower( $args[1] );
+$msg	=	$argsE[2];
+
+switch ( $to ) {
+	case 'clear':
+		$to = strtolower( $from );
+		$config['notes'][$to] = NULL;
+		unset( $config['notes'][$to] );
+		$dAmn->say( "<b>:postit: $f Notes deleted.", $c );
+		save_config( 'notes' );
+		return;
+	case 'new':
+		if ( $config['notes'][$from] ) {
+			$config['notes'][$from]['new'] = TRUE;
+			$dAmn->say( ":postit: $f your notes will be read to you the next time you speak.", $c );
+		} else {
+			$dAmn->say( ":postit: $f  You don't have any notes.", $c );
+		}
+		break;
+	case 'read':
+		global $dir;
+		$to = strtolower( $from );
+		if( $config['notes'][$to] ) {
+			$txt = '';
+			foreach( $config['notes'][$to] as $id => $msg ) {
+				if( $id !== 'new' ) {
+					$txt .= $msg . '<br>';
+					$tot = $id;
+				}
+			}
+			$tot++;
+			$config['notes'][$to]['new'] = FALSE;
+			save_config( 'notes' );
+			$dAmn->say( "<b>:postit: $from: You have $tot note(s).</b><br>$txt<b>----------------------------</b><br><i>Say {$tr}note clear to clear your notes and {$tr}note read to have them read to you again.</i>", $c );
+		} else {
+			$dAmn->say( "<b>:postit: $from: You have no notes.", $c );
+			return;
+		}
+		break;
+}	
+
+if( $to == false || $msg == false ) {
+	$dAmn->say( "$from: note [to] [msg]", $c );
+	return;
+}
+if( !$config['notes'][$to] ) $config['notes'][$to] = array();
+$config['notes'][$to][] = '<b>From</b> ' . $from . ' <b>on</b> ' . date( "r" ) . '<br><i>' . $msg . '</i>';
+$config['notes'][$to]['new'] = TRUE;
+save_config( 'notes' );
+$dAmn->say( "$f :postit: Note has been sent to $to.", $c );
+?>

@@ -1,0 +1,18 @@
+v2.5
+- fixed !spamfilter bug
+- fixed !gallery, !recent, !thumb bugs
+
+
+v2.0
+- added !botpad
+- added !spamfilter
+- added !last.fm
+- added !sys
+- added !spell
+- added !urbandict
+- renamed !devinfo to !thumb
+- added !devinfo
+- updated !urbandict, !gallery and !recent
+
+v1.0
+- initial release

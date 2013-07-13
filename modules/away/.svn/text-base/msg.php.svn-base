@@ -1,0 +1,14 @@
+<?php
+//This handles the away messages.
+global $dAmn,$config;
+$delay = 10; //Flood protection
+$args = explode( " ", $message, 2 );
+$to = strtolower( rtrim( $args[0], ",: " ) );
+if ( is_array( $config['away'][$to] ) && strtolower( $to ) != strtolower( $from ) ) {
+	if ( ( $config['away'][$to]['ts'][$cc] + $delay ) < time() ) {
+		$config['away'][$to]['ts'][$cc] = time();
+		$dAmn->say( "$from: $to is away. (" . $config['away'][$to]['msg'] . ")", $c );
+	}
+}
+unset( $to,$args,$delay );
+?>

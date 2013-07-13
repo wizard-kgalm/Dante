@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/repos/dante/!svn/ver/31/trunk/modules/autoresponse
+END
+response.php
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/repos/dante/!svn/ver/31/trunk/modules/autoresponse/response.php
+END
+event.php
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/repos/dante/!svn/ver/13/trunk/modules/autoresponse/event.php
+END
+ar.php
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/repos/dante/!svn/ver/13/trunk/modules/autoresponse/ar.php
+END
+config.php
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/repos/dante/!svn/ver/13/trunk/modules/autoresponse/config.php
+END
