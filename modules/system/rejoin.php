@@ -1,6 +1,6 @@
 <?php
-if( $config['bot']['AutoRejoinWhenKicked'] ) {
-  $dAmn->joinRoom( $chatroom );
+if( $config->bot['AutoRejoinWhenKicked'] ) {
+	$dAmn->joinRoom( $chatroom );
 }
 /*
 21:29:07 <SubjectX52873M> Don't compile, get a binary

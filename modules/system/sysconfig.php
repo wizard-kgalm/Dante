@@ -3,8 +3,8 @@
 // Name: Core Commands
 // Description: This holds the basic commands any bot needs
 // Author: SubjectX52873M
-// Version: 0.4
-// Note: Ignore is kind of iffy. 
+// Version: 1.1
+// Notes: Added back up and restore capabilities. Modified a few commands.
 // ====================
 //Activated on startup 
 $modules[$m] = new Module( $m, 1 ); 
@@ -36,6 +36,9 @@ $modules[$m]->addHelp( 'autojoin', '"autojoin [add/del/list] [room]" Manage the 
 $modules[$m]->addCmd( 'ban', 'syscom', 75, 1 );
 $modules[$m]->addHelp( 'ban', '"ban (#room) [user]"' );
 
+$modules[$m]->addCmd( 'backup', 'syscom', 99, 1 );
+$modules[$m]->addHelp( 'backup', "{$tr}backup [file/all] <i>yes</i>. Backs up [file] to the back up from the original file. If [all] instead of [file], all of the config will be backed up." );
+
 //C
 $modules[$m]->addCmd( 'chat', 'syscom', 0, 1 );
 $modules[$m]->addHelp( 'chat', '"chat [user]" Starts a pchat conversion with [user] (Requires dAx or a third party client with pchat ablity)' );
@@ -45,6 +48,8 @@ $modules[$m]->addHelp( 'commands', '"commands (all/details)" List commands on th
 
 $modules[$m]->addCmd( 'credits', 'syscom', 0, 1 );
 $modules[$m]->addHelp( 'credits', 'Shows infomation about the bot' );
+
+$modules[$m]->addCmd( 'reset', 'syscom', 99, 1 );
 
 $modules[$m]->addCmd( 'ctrig', 'ctrig', 99, 1 );
 $modules[$m]->addHelp( 'ctrig', '"ctrig [trigger] confirm" Allow you to change the bot\'s trigger.<br/> You need to type "confirm" after the new trigger to set it.' );
@@ -104,14 +109,17 @@ $modules[$m]->addHelp( 'promote', '"promote (#room) [user] (privclass)"' );
 
 //Q
 $modules[$m]->addCmd( 'quit', 'more', 99, 1 );
-$modules[$m]->addHelp( 'quit', '"quit" Shutdown the bot.' );
+$modules[$m]->addHelp( 'quit', "{$tr}quit <i>yes</i>. Shuts down the bot. If yes, will also perform a config back up before quitting." );
 
 //R
 $modules[$m]->addCmd( 'reload', 'syscom', 99, 1 );
 $modules[$m]->addHelp( 'reload', '"reload [all/config/modules/scritps]"' );
 
+$modules[$m]->addCmd( 'restore', 'syscom', 99, 1 );
+$modules[$m]->addHelp( 'restore', "{$tr}restore [file] <i>yes</i>. Restores [file] from the back up to the original file. Beware, the file may be out of date. It is recommended that you back up the config regularly." );
+
 $modules[$m]->addCmd( 'restart', 'more', 99, 1 );
-$modules[$m]->addHelp( 'restart', '"restart" restart the bot.' );
+$modules[$m]->addHelp( 'restart', "{$tr}restart <i>yes</i>. Restarts the bot. If yes, will also perform a config back up before restarting." );
 //S
 $modules[$m]->addCmd( 'say', 'syscom', 75, 1 );
 $modules[$m]->addHelp( 'say', '"say ( #room ) [text]"' );
@@ -135,19 +143,13 @@ $modules[$m]->addCmd( 'unignore', 'syscom', 75, 1 );
 $modules[$m]->addHelp( 'unignore', '"unignore [user]" removes the user from the ignore list.' );
 
 $modules[$m]->addCmd( 'user', 'syscom', 99, 1 );
-$modules[$m]->addCmd( 'users', 'syscom', 99, 1 );
 $modules[$m]->addHelp( 'user', '"user add [user] [pc name/id]" adds a user to the bot\'s user list<br>' .
 '"user del [user]" removes the user from the bot\'s user list<br>' .
 '"user list" diplays the bot\'s user list<br>' .
 '"user addprivclass [name] [level]" creates a new privclass<br>' .
 '"user renprivclass [level] [new name]" renames a privclass<br>' .
 '"user delprivclass [name]" deletes a privclass' );
-$modules[$m]->addHelp( 'users', '"users add [user] [pc name/id]" adds a user to the bot\'s user list<br>' .
-'"users del [user]" removes the user from the bot\'s user list<br>' .
-'"users list" diplays the bot\'s user list<br>' .
-'"users addprivclass [name] [level]" creates a new privclass<br>' .
-'"users renprivclass [level] [new name]" renames a privclass<br>' .
-'"users delprivclass [name]" deletes a privclass' );
+
 //V
 //W
 $modules[$m]->addCmd( 'whois', 'syscom', 0, 1 );

@@ -4,13 +4,13 @@
 switch($args[0] ) {
 //System Commands. :)
 //A
-  case "about":
+	case "about":
 		$say = '';
 		//Normal About
 		if ( $args[1] == '' || $args[1] == 'all' ) {
 			if( $args[1] == 'all' ) { $say .= "<sub><b><u>About the Bot</u></b><br>"; }
-			$say .= $config['bot']['about'];
-			if ( !$config['bot']['thumbMode'] ) $mode = 'Normal'; 
+			$say .= $config->bot['about'];
+			if ( !$config->bot['thumbMode'] ) $mode = 'Normal'; 
 			else $mode = 'Portable'; 
 			$find = array(
 				"{os}",
@@ -27,8 +27,8 @@ switch($args[0] ) {
 				PHP_VERSION,
 				BotVersion . " " . BotState,
 				$tr,
-				$config['bot']['owner'],
-				$config['bot']['username'],
+				$config->bot['owner'],
+				$config->bot['username'],
 				$mode,
 				BotRevision,
 			);
@@ -70,21 +70,16 @@ switch($args[0] ) {
 				$dAmn->say( "$f You can't disable the access command.", $c );
 				break;
 			}
-			$config['access']['priv'][$args[1]] = $level;
-			save_config( 'access' );
-			$dAmn->say( "$from: Access for " . $config['bot']['trigger'] . "{$args[1]} is now $level.", $c );
-		} else
-			if(!empty ($args[1]) && empty($args[2])){
-				
-				$dAmn->say("$from: Priv level for $args[1] is {$config['access']['priv'][$args[1]]}.",$c);
-			}else $dAmn->say( "Usage: [command] level", $c );
+			$config->df['access']['priv'][$args[1]] = $level;
+			$config->save_info( "./config/access.df", $config->df['access'] );
+			$dAmn->say( "$from: Access for " . $config->bot['trigger'] . "{$args[1]} is now $level.", $c );
+		} else $dAmn->say( "Usage: [command] level", $c );
 		break;
-		
 	
 	case "admin":
-		if( $args[1]{0} == "#" || substr( $args[1], 0, 5 ) == "chat:" ) { // We'll guess first argument is a room.
-			$room = $args[1];
-			$commandA = explode( " ", implode( " ", $args ), 2 ); // And the rest is the /admin command.
+		if( $args[2]{0} == "#" || substr( $args[2], 0, 5 ) == "chat:" ) { // We'll guess first argument is a room.
+			$room = $args[2];
+			$commandA = explode( " ", implode( " ", $args ), 3 ); // And the rest is the /admin command.
 			$command = $commandA[1];
 		} else { // Okay, it's all an /admin command for the current room then
 			$command = $argsF;
@@ -94,32 +89,52 @@ switch($args[0] ) {
 		break;
 		
 	//B
+	case "backup":
+		if( empty( $args[1] ) or empty( $args[2] ) ){
+			return $dAmn->say( "$from: Usage: {$tr}backup [file/all] <i>yes</i>. This will save [file] over the back up. If [all], it will save ALL files to their back ups.", $c );
+		}
+		if( empty( $args[2] ) or strtolower( $args[2] ) !== "yes" ) {
+			return $dAmn->say( "$from: Usage: {$tr}backup [file/all] <i>yes</i>. Need confirmation to continue." , $c );
+		}
+		if( strtolower( $args[1] !== "all" ) ){
+			if( isset( $config->df[$args[1]] ) ){
+				$config->save_config( "./config/{$args[2]}.df", $config->df[$args[2]], TRUE );
+			} else {
+				return $dAmn->say( "$from: File not found. Please check the name of the file you're backing up and try again." , $c );
+			}
+		} else {
+			foreach( $config->df as $files => $arrays ) {
+				$config->save_config( "./config/{$files}.df", $config->df[$files], TRUE );
+			}
+		}
+		$dAmn->say( "$from: Back up successful!" , $c );
+	break;
+			
 	case "ban":
 	case "unban":
-		if( empty( $args[1] ) ) { $dAmn->say( $f . "Please say who to " . $commandname . ".", $c ); break; }
+	case "promote":
+	case "demote":
+		if( empty( $args[1] ) ){ $dAmn->say($f . "Please say who to " . $commandname . ".", $c ); break; }
 		
-		if ( substr( $args[1], 0, 1 ) == "#" ) {
-			$room = $args[1];
-			$person = $args[2];
+		if ( substr( $args[1], 0, 1 ) == "#" || substr( $args[1], 0, 1 ) == "@" ) {
+			//There is a chat room
+			$channel  	= $args[1];
+			$person 	= $args[2];
+			$privclass 	= $args[3];
 		} else {
-			$person = $args[1];
-			$room = $c;
+			//There isn't a chatroom
+			$person 	= $args[1];
+			$privclass 	= $args[2];
+			$channel	= $c;
 		}
-		switch( $commandname ) {
-			case "ban":
-				$dAmn->ban( $person, $room );
-				break;
-			case "unban":
-				$dAmn->unban( $person, $room );
-				break;
-		}
-		break;
-		
+		$dAmn->promote( $person, $privclass, $channel, $args[0] );
+	break;
+	
 	//C
 	case "chat":
 		if( !empty( $args[1] ) ) {
-			if( strtolower( $args[1] ) != strtolower( $config['bot']['username'] ) ) {
-				$chatroom = generateChatName( 'pchat:' . $args[1] . ':' . $config['bot']['username'] );
+			if( strtolower( $args[1] ) != strtolower( $config->bot['username'] ) ) {
+				$chatroom = generateChatName( 'pchat:' . $args[1] . ':' . $config->bot['username'] );
 				$dAmn->joinRoom( $chatroom );
 				$dAmn->say( $args[1] . ": I am online", $chatroom );
 				$dAmn->say( $f . "Opened private chat with :dev" . $args[1] . ":", $c );
@@ -140,51 +155,54 @@ switch($args[0] ) {
 				"<b>Alpha and Beta testers: </b><br/>" .
 				"bento<b></b>mlin, Cl<b></b>anCC, electr<b></b>icnet, l33<b></b>7a, Mag<b></b>aman, MagicMas<b></b>ter87, ManjyomeT<b></b>hunder<br />" .
 				"\"If it's open source it's not stealing, it's sharing\" - Olyrion";
-				break;
+			break;
 			case "subjectx52873m":
 				$say = "Subject<b></b>X52873M, Developer of Dante</strong><br/>" .
 				"I don't know what to say about myself. I have so many people to thank. So many things to say about them. I leave nothing for myself other than I enjoyed making the bot and I hope you enjoy using it.<br/>" .
 				"<em>\"That's going in Dante.\"</em><sub>";
-				break;
+			break;
 			case "olyrion":
 				$say = "A special thanks to Olyri<b></b>on.</strong><br/><sub>" .
 				"Most of you haven't heard of him. He is a friend of mine in real life. He has a dA account but he is not very active. (Snails are far more active)<br/>" .
 				"His contribution to the project was being a consulant and sounding board for a few ideas of mine. This bot never would have been as great as it is without him. The welcome module commands, debug levels, and various other things are things that he suggested to me. <br/>" .
 				"<em>\"It has to be easy to understand or no one will use it\"</em></sub>";
-				break;
+			break;
 			case "zeros-elipticus":
 				$say = "A special thanks to Zeros-El<b></b>ipticus.</strong><br/><sub>" .
 				"He has been a recent addition to the project. He shared zbot error handling library selflessly with SubjectX<b></b>52873M for use in this project.<br/>" .
-				"<em>\"you suck :( fix the spelling\"</em></sub>";
-				break;
+				"<em>\"you suck :&zwj;( fix the spelling\"</em></sub>";
+			break;
 			case "electricnet":
 				$say = "A special thanks to elec<b></b>tricnet</strong><br /><sub>" .
-				"Without a doubt he is the number one contributor to Dante. He wrote the bot Futurism. As an alpha tester SubjectX<b></b>52873M stole his bot and started modifying it. (With permission of course) But SubjectX<b></b>52873M didn't just steal code. He continuely pestered electricnet for help. (Not a recommended course of action)<br/>" .
+				"Without a doubt he is the number one contributor to Dante. He wrote the bot Futurism. As an alpha tester SubjectX<b></b>52873M stole his bot and started modifying it. (With permission of course) But SubjectX<b></b>52873M didn't just steal code. He continually pestered electricnet for help. (Not a recommended course of action)<br/>" .
 				"<em>\"It's still not called Tarbot D:<\"</em></sub>";
-				break;
+			break;
 			case "infinity0":
 				$say = "A special thanks to in<b></b>finity0</strong><br /><sub>" .
 				"I stole his module system out of his xBot. He was also very helpful with debugging my bot. <br/><em>\"Check your variables\"</em></sub>";
-				break;
+			break;
 			case "plaguethenet":
 				$say = "A special thanks to plag<b></b>uethenet</strong><br /><sub>" .
-				"I didn't steal any code from him but I definitely stole ideas. (He stole mine too) He also provided fierce compitetion. All in good fun of course.</sub>";
-				break;
+				"I didn't steal any code from him but I definitely stole ideas. (He stole mine too) He also provided fierce competition. All in good fun of course.</sub>";
+			break;
 			case "history":
 				$say = "The bot's history</strong><br /><sub>" .
 				"For those that didn't know. Dante was SubjectX<b></b>52873M's independent project worth 4 college credits for the semster of Fall 2006 at University of Wisconsin, Green Bay.<br/>" .
-				"Subject<b></b>X52873M started writing Dante only knowing enough php to modify Noodlebot. He spent 2 weeks writing his own code without help and only a protocol guide and other bots to look at. Then in desperation he stole the code of Futurism (with electricnet's permission) and built his program on the core. Finding his stolen code to be lacking, he stole xbot's module system. He soon found himself in fierce compenetion with p<b></b>laguethenet and his bot. Finally SubjectX<b></b>52873M finished up his code, wrote a manual and emailed it to his professor three days before it was due and proccended to study for his 4 exams.<br/>" .
+				"Subject<b></b>X52873M started writing Dante only knowing enough php to modify Noodlebot. He spent 2 weeks writing his own code without help and only a protocol guide and other bots to look at. Then in desperation he stole the code of Futurism (with electricnet's permission) and built his program on the core. Finding his stolen code to be lacking, he stole xbot's module system. He soon found himself in fierce competition with p<b></b>laguethenet and his bot. Finally SubjectX<b></b>52873M finished up his code, wrote a manual and emailed it to his professor three days before it was due and proceeded to study for his 4 exams.<br/>" .
 				"In March 2007 Subject<b></b>X52873M recoded most of the bot's core functions and moved away from electricnet's code. The resulting code was quite awesome. He eventually added a error handling library created by Zeros-Eli<b></b>pticus for zBot.<br/>" .
 				"Last seen Subject<b></b>X52873M was still working on Dante.</sub>";
-				break;
+			break;
 			default:
 				$say = "Dante is a bot by SubjectX528<b></b>73M</strong><br />" .
+				"Dante (now in version 1.x) has been updated by both Knight<b></b>ofBreath, and Wiz<b></b>ard-Kgalm, with most changes by KnightOf<b></b>Breath being fixed or replaced by Wizard<b></b>-Kgalm.".
 				'<sub>&middot;Shares about <abbr title="This number keeps getting smaller.">5%</abbr> of its code with Futurism 0.3<br />' .
 				'&middot;Module system adapted from xbot 0.87<br />' .
-				'&middot;Configuration system adapted from Noodlebot 3.0<br />' .
+				'<s>&middot;Configuration system adapted from Noodlebot 3.0</s>' .
+				"&middot;Configuration system has been rewritten and is similar to Contra, but not a replica.<br/>".
+				"&middot;OAuth Token Grabber taken and modified from Contra, Credit again to Clan<b></b>CC/DeathSh<b></b>adow--666".
 				'&middot;ZAPI Error Handling class from zbot<br />' .
 				'&middot;Ideas stolen from anything in sight' . '</sub>';
-				break;
+			break;
 		}
 		$dAmn->say( "<strong><u>:bow: CREDITS:</u><br />" . $say, $c );
 		break;
@@ -208,9 +226,9 @@ switch($args[0] ) {
 			$domsg 		= $argsE[3];
 			$channel	= $c;
 		}
-		if ( strtolower( $com ) != "execute" && strtolower( $userfrom ) != strtolower( $config['bot']['owner'] ) ) {
-			parseCommand( $config['bot']['trigger'] . $com . ' ' . $domsg, $userfrom, $channel, "msg" );
-		} elseif ( strtolower( $userfrom ) == strtolower( $config['bot']['owner'] ) ) {
+		if ( strtolower( $com ) != "execute" && strtolower( $userfrom ) != strtolower( $config->bot['owner'] ) ) {
+			parseCommand( $config->bot['trigger'] . $com . ' ' . $domsg, $userfrom, $channel, "msg" );
+		} elseif ( strtolower( $userfrom ) == strtolower( $config->bot['owner'] ) ) {
 			$dAmn->say( "Cannot execute commands as bot owner.", $c );
 		} else {
 			$dAmn->say( "Execute can not be used with the \"do\" command.", $c );
@@ -222,7 +240,7 @@ switch($args[0] ) {
 	case "flood":
 		global $flood;
 		$cancel	= FALSE;
-		$a		= $config['access']['flood'];
+		$a		= $config->df['access']['flood'];
 		$say	= "Option: on, off, status, priv, period, time, timeout, repeating, rperiod, rtime, rtimeout";
 		switch( $args[1] ) {
 			case "on":
@@ -306,9 +324,8 @@ switch($args[0] ) {
 				} else $say = "on or off";
 				break;
 		}
-		$config['access']['flood'] = $a;
-		save_config( 'access' );
-		
+		$config->df['access']['flood'] = $a;
+		$config->save_info( "./config/access.df", $config->df['access'] );
 		$dAmn->say( $say, $c );
 		break;
 	//G
@@ -339,7 +356,7 @@ switch($args[0] ) {
 			if ( $user->isIgnored( $args[1] ) ) {
 				$dAmn->say( $f . $args[1] . " is already ignored.", $c );
 			} else {
-				if ( $from != $args[1] && $args[1] != $config['bot']['owner'] ) {
+				if ( $from != $args[1] && $args[1] != $config->bot['owner'] ) {
 					if( $user->ignore( $args[1] ) ) {
 						$dAmn->say( $f . $args[1] . " has been added to the ignore list.", $c );
 					} else $dAmn->say( $f . "Unable to ignore, reason unknown.", $c );
@@ -365,24 +382,24 @@ switch($args[0] ) {
 		
 	//J
 	case "join":
+	case "part":
 		global $officialchats;
-		if( !empty( $args[1] ) ) {
-			$chatroom = generateChatName( $args[1] );
-			if ( in_array( $chatroom, $officialchats ) && $args[2] != 'override' ) {
-				$dAmn->say( $f . "Unable to join {$args[1]}. Owner override needed.", $c );
-				break;
-			} elseif ( in_array( $chatroom, $officialchats ) && $args[2] == 'override' ) {
-				if ( !$user->has( $from,99 ) ) {
-					break;
-				} else {
-					$dAmn->say( $f . "Override accepted", $c );
-				}
-			}
-			$dAmn->joinRoom( $chatroom );
-		} else {
-			$dAmn->say( $f . "You've got to type a room for me to join, please.", $c );
+		if( empty( $args[1] ) ) {
+			return $dAmn->say( "$from: Usage: {$tr}$args[0] [room]. [Room] is the room you would like me to $args[0].", $c );
 		}
-		break;
+		$chatroom = generateChatName( $args[1] );
+		if ( in_array( $chatroom, $officialchats ) && $args[2] != 'override' ) {
+			$dAmn->say( $f . "Unable to join {$chatroom}. Owner override needed.", $c );
+			break;
+		} elseif ( in_array( $chatroom, $officialchats ) && $args[2] == 'override' ) {
+			if ( !$user->has( $from, 99 ) ) {
+				break;
+			} else {
+				$dAmn->say( $f . "Override accepted", $c );
+			}
+		}
+		$dAmn->joinRoom( $chatroom, $commandname );
+	break;
 	
 	//K
 	case "kick":
@@ -426,50 +443,13 @@ switch($args[0] ) {
 	//O
 	
 	//P
-	case "promote":
-	case "demote":
-		if(empty($args[1])){ $dAmn->say($f . "Please say who to " . $commandname . ".", $c); break; }
-		
-		if ( substr( $args[1], 0, 1 ) == "#" || substr( $args[1], 0, 1 ) == "@" ) {
-			//There is a chat room
-			$channel  	= $args[1];
-			$person 	= $args[2];
-			$privclass 	= $args[3];
-		} else {
-			//There isn't a chatroom
-			$person 	= $args[1];
-			$privclass 	= $args[2];
-			$channel	= $c;
-		}
-	
-		switch( $commandname ) {
-			case "promote":
-				$dAmn->promote( $person, $privclass, $channel );
-				break;
-			case "demote":
-				$dAmn->demote( $person, $privclass, $channel );
-				break;
-		}
-		break;
-	case "part":
-		if( !empty( $args[1] ) ) {
-			$chatroom = generateChatName( $args[1] );
-		} else {
-			$chatroom = $c;
-		}
-		$x = $dAmn->partRoom( $chatroom );
-		if( !$x ) {
-			$dAmn->say( $f . "Uh oh, something failed down there.", $c );
-		}
-		break;
-		
 	case "priv":
 		$cmd = $args[1];
 		if ( $cmd == 'commands' || $cmd == 'errors' || $cmd == 'trigcheck' || $cmd == 'events' ) {
 			if( $args[2] !== '' ) {
 				$level = accessFix( $args[2], TRUE );
-				$config['access']['default'][$cmd] = $level;
-				save_config( 'access' );
+				$config->df['access']['default'][$cmd] = $level;
+				$config->save_info( "./config/access.df", $config->df['access'] );
 				$dAmn->say( "$from: Access for $cmd is now $level.", $c );
 				break;
 			}
@@ -479,7 +459,7 @@ switch($args[0] ) {
 				if( $user->getClassNameFromId( $level ) !== FALSE ) $lvl = $level;
 			} else $lvl = $user->getClassIdFromName( $level );
 			if( $lvl !== FALSE ) {
-				 $config['access']['default'][$cmd] = $lvl;
+				 $config->df['access']['default'][$cmd] = $lvl;
 				 $dAmn->say( "Users not registered to the bot will be in privclass \"" . $user->getClassNameFromId( $lvl ) . "\"", $c );
 			 } else $dAmn->say( "\"priv guests\" expects a privclass. You one you supplied doesn't exist.", $c );
 		} else {
@@ -491,9 +471,30 @@ switch($args[0] ) {
 	//Q
 	
 	//R
+	case "restore": 
+		if( empty( $args[1] ) || empty ($args[2] ) ){
+			return $dAmn->say( "$from: Usage: {$tr}restore [file] <i>yes</i>. This will take the back up of [file] and save over the original with it. This is so if you mess up a config file, you can restore it. Beware, your backup file could possibly be out of date. If you this bot was an update from your old Dante, your file possibly would be the one found when the config was updated.", $c );
+		}
+		if( empty( $args[2] ) || strtolower( $args[2] ) !== "yes" ){
+			return $dAmn->say( "$from: Usage: {$tr}restore [file] <i>yes</i>. Confirmation required.", $c );
+		}
+		$restore = $config->restore_backup( strtolower( $args[1] ) );
+		if( $restore ){
+			$dAmn->say( "$from: {$restore}", $c );
+		}else{
+			$dAmn->say( "$from: Restore successful!" , $c );
+		}
+	break;
+	case "reset":
+		if( empty( $args[1] ) || strtolower( $args[1] ) !== "yes" ){
+			return $dAmn->say( "$from: Usage: {$tr}reset <i>yes</i>. This will save a fresh copy of the config.ini over your copy. This is only to rebuild it." , $c );
+		}
+		$config->build_config();
+		$dAmn->say( "$from: Config.ini has been reset." , $c );
+	break;
+	
 	//S
 	case "say":
-		
 		if( $args[1]{0} == "#" || substr( $args[1], 0, 5 ) == "chat:" || $args[1]{0} == "@" || substr( $args[1], 0, 6 ) == "pchat:" ) {
 			$room = generateChatName( $args[1] );
 			$textToSay = $argsE[2];
@@ -503,16 +504,11 @@ switch($args[0] ) {
 				var_dump( $textToSayA );
 				echo "-> ROOM: " . $room . "\n-> TEXT: " . $textToSay . "\n";
 			}
-
-		
-
-		
 			$dAmn->say( $textToSay, $room );
 		} else {
-
 			$dAmn->say( $argsF, $c );
 		}
-		break;
+	break;
 		
 	//Scripts are managed here :)
 	case "scripts":
@@ -609,7 +605,6 @@ switch($args[0] ) {
 		break;
 		
 	//Still sucks. Need to remake this.
-	case "users":
 	case "user":
 		switch( $args[1] ) {
 			case "add":
@@ -627,7 +622,6 @@ switch($args[0] ) {
 						$dAmn->say( $f . "Couldn't find that privclass.", $c );
 						break; 
 					}
-					
 					$added = $user->add( $args[2], $privclass );
 					var_dump( $args[2] );
 					var_dump( $privclass );
@@ -652,7 +646,6 @@ switch($args[0] ) {
 						"<i>Name:</i> {$name}<br>" .
 						"<i>Priv Group:</i> {$privname} ({$privs})<br>" .
 						"<i>Added:</i> {$time}";
-					
 				}
 				$dAmn->say( $say, $c );
 				break;
@@ -663,7 +656,7 @@ switch($args[0] ) {
 					$name = $user->getClassNameFromId( $i );
 					$ulist = implode( ":, :dev", $u );
 					$say .= "<li><b>{$name}</b> ({$i})<br/>";
-					if( $i == $config['access']['default']['guests']) $say .= "<i>Guest Default</i></li>";
+					if( $i == $config->df['access']['default']['guests']) $say .= "<i>Guest Default</i></li>";
 					elseif( empty( $u ) ) $say .= "<i>No members</i></li>";
 					else $say .= ":dev{$ulist}:</li>";
 				}

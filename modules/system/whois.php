@@ -1,6 +1,6 @@
 <?php
-if( $config['bot']['showWhois'] ) {
-  $info = $params[2];
+if( $config->bot['showWhois'] ) {
+	$info = $params[2];
 	$conn = $params[3];
 	$say = ":icon{$info['name']}: :dev{$info['name']}:";
 	$say .= "<br> {$info['realname']}".
