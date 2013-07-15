@@ -237,6 +237,22 @@ class dAmn {
 		}
 	}
 	/**
+	* Log out of dA. This is just a call for functions so it doesn't have to be included in every module.
+	* @author Wizard-Kgalm
+	* @version 1.0
+	*/
+	function logout( $cookie ) {
+		if( empty( $cookie ) ) {
+			echo "No cookie.. cancelling. \n"; return;
+		}
+		$socket = @fsockopen( "ssl://www.deviantart.com", 443 );
+		$host = "www.deviantart.com";
+		$url = "/users/logout";
+		$referer = "http://www.deviantart.com/";
+		$post = "";
+		$this->send_headers( $socket, $host, $url, $referer, $post, $cookie );
+	}
+	/**
 	 * Send stuff to the server.
 	 *
 	 * It's sent raw, you need to add chr( 0 ) to the end of any data you send using this function.
@@ -662,21 +678,17 @@ class dAmn {
 	}
 	
 	/**
-	*Authorize OAuth to grab the token for your account. This won't really work unless we have you feed a password one time, or unless you have Magician. 
-	*@ This will not store your password on the bot, and it will store the code so if it needs to be grabbed again, it's available.
+	* Cookie Grabber. This is the old token grabber command that has been modified to return the whole cookie. This is not called on by login.
+	* I'm leaving this in the core because it's called on by a lot of [my] commands and I'd like to have it centralized.
+	*@version 2.1
 	*@author Wizard-Kgalm
-	*@version 1.0
 	*/
-	function authorize( $username ){
-		global $config;
+	function getCookie( $username, $password ) {
+		if( empty( $password ) ) {
+			return FALSE;
+		}
 		// Method to get the cookie! Yeah! :D
 		// Our first job is to open an SSL connection with our host.
-		if( isset( $config->logins['login'][$username] ) ){
-			$password = base64_decode( $config->logins['login'][$username] );
-		} else {
-			print "\nTo authorize the account automatically, we'll need your bot's password. This won't be stored, and will only be asked for now.\n";
-			$password = trim( fgets ( STDIN ) );
-		}
 		$socket = fsockopen( "ssl://www.deviantart.com", 443 );
 		// If we didn't manage that, we need to exit!
 		if( $socket === false ) {
@@ -687,7 +699,7 @@ class dAmn {
 		}
 		fclose( $socket );
 		// Fill up the form payload
-		$POST  = '&username='.urlencode( $username );
+		$POST  = '&username='.urlencode( strtolower( $username ) );
 		$POST .= '&password='.urlencode( $password );
 		$POST .= '&remember_me=1';
 		// And now we send our header and post data and retrieve the response.
@@ -700,13 +712,13 @@ class dAmn {
 		);
 		// Now that we have our data, we can close the socket.
 		// And now we do the normal stuff, like checking if the response was empty or not.
-		if( empty( $response ) ){
+		if( empty( $response ) ) {
 			return array(
 				'status' => 3,
 				'error' => 'No response returned from the server'
 			);
 		}		
-		if( stripos( $response, 'set-cookie' ) === false ){
+		if( stripos( $response, 'set-cookie' ) === false ) {
 			return array(
 				'status' => 4,
 				'error' => 'No cookie returned'
@@ -715,10 +727,39 @@ class dAmn {
 		// Grab the cookies from the header
 		$response = explode( "\r\n", $response );
 		$cookie_jar = array();
-		foreach ( $response as $line ){
-			if ( strpos( $line, "Set-Cookie:" ) !== false ){
+		foreach ( $response as $line ) {
+			if ( strpos( $line, "Set-Cookie:" ) !== false ) {
 				$cookie_jar[] = substr( $line, 12, strpos( $line, "; " ) -12 );
 			}
+		}
+		$test = urldecode( $cookie_jar[0] );
+		if( stripos( $test, strtolower( $username ) ) === false ) {
+			return array( // It returns a cookie even if your login info is bad, it's just an empty session. We don't want a useless cookie.
+				'status' => 5,
+				'error' => 'Login failed, bad pass?'
+			);
+		}
+		return $cookie_jar; // And we're returning the cookie jar, full of delicious cookie.
+	}
+	
+	/**
+	*Authorize OAuth to grab the token for your account. This won't really work unless we have you feed a password one time, or unless you have Magician. 
+	*@ This will not store your password on the bot, and it will store the code so if it needs to be grabbed again, it's available.
+	*@author Wizard-Kgalm
+	*@version 1.0
+	*/
+	function authorize( $username ){
+		global $config;
+		if( isset( $config->logins['login'][$username] ) ){
+			$password = base64_decode( $config->logins['login'][$username] );
+		} else {
+			print "\nTo authorize the account automatically, we'll need your bot's password. This won't be stored, and will only be asked for now.\n";
+			$password = trim( fgets ( STDIN ) );
+		}
+		$cookie_jar = $this->getCookie( $username, $password );
+		if( isset( $cookie_jar['error'] ) ) {
+			echo "{$cookie_jar['error']}Bad cookie? Let's try this again.\n";
+			return $this->authorize( $username );
 		}
 		$grab = $this->send_headers(
 			fsockopen( "ssl://www.deviantart.com", 443 ),
@@ -812,14 +853,12 @@ class dAmn {
 			/*if( isset( $config->df['access2'][$username] ) ){
 				echo "Code found, let's attempt to grab us a token." . LBR;
 				$code = $config->df['access2'][$username];
-				
 			} else {*/
 				//Manual authorization. Let's not have to open the browser ourselves.
 				echo "Gonna attempt to authorize ourselves.. " . LBR;
 				$code = $this->authorize( $username );
-				if( !empty( $code ) ){
+				if( !empty( $code ) ) {
 					echo "Success! Round 2". LBR;
-				
 				} else {
 					echo "Something went wrong. Let's try it this way.." . LBR;
 					echo "Open your browser to the required URL. Please load the link below! (Make sure to login the account you're using for bot first.)" . LBR;
@@ -828,14 +867,13 @@ class dAmn {
 					echo "Enter the code given by above link:" . LBR;
 					$code = trim( fgets( STDIN ) ); // STDIN for reading input
 				}
-			
 			// Getting the access token.
 			$oauth_file[ $username ] = $this->socket( '/oauth2/draft15/token?client_id='.$this->client_id.'&redirect_uri=http://damn.shadowkitsune.net/apicode/&grant_type=authorization_code&client_secret='.$this->client_secret.'&code='.$code );
 			// Set to oauth_tokens variable
 			$this->oauth_tokens = json_decode( $oauth_file[ $username ] );
 			if( $this->oauth_tokens->status != "success" ) {
 				if( $mode == 0 ) echo $this->error( "For some reason, your tokens failed" ) . LBR;
-				$config->save_config('./config/test.vudf', $this->oauth_tokens );
+				$config->save_config( './config/test.vudf', $this->oauth_tokens );
 				unset( $oauth_file[$username] );
 				$config->save_info( "./config/oauth.json", $oauth_file );
 				$this->oauth( 0, $username );
@@ -852,13 +890,11 @@ class dAmn {
 		//Need to grab the token.
 		$this->oauth( 0, $username );
 		// Grab the damntoken and set it to damntoken variable
-		$this->damntoken = json_decode($this->socket('/api/draft15/user/damntoken?access_token='.$this->oauth_tokens->access_token));
+		$this->damntoken = json_decode( $this->socket( '/api/draft15/user/damntoken?access_token=' . $this->oauth_tokens->access_token ) );
 	}
 	
-	function send_headers( $socket, $host, $url, $referer, $post = null, $cookies = array( ) )
-	{
-		try
-		{
+	function send_headers( $socket, $host, $url, $referer, $post = null, $cookies = array( ) ) {
+		try {
 			$headers = "";
 			if( isset( $post ) )
 				$headers .= "POST {$url} HTTP/1.1\r\n";
@@ -880,8 +916,7 @@ class dAmn {
 			while( !feof( $socket ) ) $response .= fgets ( $socket, 8192 );
 			return $response;
 		}
-		catch( Exception $e )
-		{
+		catch( Exception $e ) {
 			echo "Exception occured: " . $e->getMessage() . "\n";
 			return "";
 		}
@@ -1298,4 +1333,5 @@ class dAmn {
 		//Call most events
 		if( $event ) include f( "system/callables/event.php" );
 	}
-}?>
+}
+?>
