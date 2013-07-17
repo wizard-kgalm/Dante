@@ -683,7 +683,7 @@ class dAmn {
 	*@version 2.1
 	*@author Wizard-Kgalm
 	*/
-	function getCookie( $username, $password ) {
+	function getCookie( $username, $password, $t = FALSE ) { //$t (token) is the trigger for Magician. If Magician, we'll be going further with the cookie to grab the token.
 		if( empty( $password ) ) {
 			return FALSE;
 		}
@@ -738,6 +738,35 @@ class dAmn {
 				'status' => 5,
 				'error' => 'Login failed, bad pass?'
 			);
+		}
+		if( $t ) {
+			$response = $this->send_headers(
+				fsockopen( "ssl://www.deviantart.com", 443 ),
+				"chat.deviantart.com",
+				"/chat/Botdom",
+				"http://chat.deviantart.com",
+				null,
+				$cookie_jar
+			);
+			// Now search for the authtoken in the response
+			$cookie = null;
+			if( ( $pos = strpos( $response, "dAmn_Login( ") ) !== false ){
+				$response = substr( $response, $pos + 12 );
+				$cookie   = substr( $response, strpos( $response, "\", " ) + 4, 32 );
+			}else{ 
+				return array(
+					'status' => 4,
+					'error' => 'No authtoken found in dAmn client.'
+				);
+			}		  
+			// Because errors still happen, we need to make sure we now have an array!
+			if( !$cookie ){
+				return array(
+					'status' => 5,
+					'error' => 'Malformed cookie returned.'
+				);
+			}
+			return $cookie;
 		}
 		return $cookie_jar; // And we're returning the cookie jar, full of delicious cookie.
 	}
